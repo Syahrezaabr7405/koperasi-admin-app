@@ -188,8 +188,13 @@ export default function AdminScreen() {
 
   const handleStatusChange = async (orderId, newStatus) => {
     showAlert('Konfirmasi', `Ubah status pesanan menjadi "${newStatus}"?`, async () => {
-        await updateOrderStatus(orderId, newStatus);
-        fetchOrders(); 
+        try {
+            await updateOrderStatus(orderId, newStatus);
+            fetchOrders(); 
+            // Opsional: showAlert('Sukses', 'Status diperbarui'); 
+        } catch (error) {
+            showAlert('Gagal', 'Gagal memperbarui status ke server.');
+        }
     });
   };
 
@@ -241,7 +246,7 @@ export default function AdminScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>ADMIN PANEL</Text>
-          <TouchableOpacity onPress={() => { setUser(null); router.replace('/index'); }}>
+          <TouchableOpacity onPress={() => { setUser(null); router.replace('/'); }}>
             <Text style={styles.logout}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -265,7 +270,7 @@ export default function AdminScreen() {
         </View>
 
         <ScrollView style={{flex:1}}>
-          {/* CONTENT: ORDERS - BAGIAN YANG DIMODIFIKASI */}
+          {/* CONTENT: ORDERS */}
           {activeTab === 'orders' && (
             <View style={{padding: 10}}>
               {orders.length === 0 && <Text style={{textAlign:'center', marginTop:20}}>Belum ada pesanan.</Text>}
@@ -279,7 +284,6 @@ export default function AdminScreen() {
                   <Text>Pembeli: <Text style={styles.bold}>{order.userName}</Text></Text>
                   <Text style={{marginBottom:5}}>Alamat: {order.address}</Text>
 
-                  {/* BOX RINCIAN BARANG BARU */}
                   <View style={styles.orderDetailContainer}>
                     <Text style={styles.orderDetailTitle}>🛒 Rincian Barang:</Text>
                     {order.items && order.items.length > 0 ? (
@@ -532,8 +536,6 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
   modalText: { textAlign: 'center', marginBottom: 20 },
   topUpInput: { width: '100%', borderWidth:1, borderColor:'#ddd', borderRadius:8, padding:12, fontSize:16, textAlign:'center', marginBottom: 20 },
-
-  // STYLING KHUSUS UNTUK RINCIAN PESANAN BARU
   orderDetailContainer: { backgroundColor: '#f9f9f9', padding: 10, borderRadius: 8, marginTop: 10, borderWidth: 1, borderColor: '#eee' },
   orderDetailTitle: { fontSize: 12, fontWeight: 'bold', color: '#555', marginBottom: 5 },
   orderDetailItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2, borderBottomWidth: 0.5, borderBottomColor: '#eee' },
