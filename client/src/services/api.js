@@ -125,12 +125,9 @@ export const payWajib = async () => {
 export const getUsers = async () => {
   try {
     const response = await axios.get(`${API_URL}/users`);
-    // Tambahkan log untuk debugging di browser console
-    console.log("Data dari server:", response.data);
     return response.data;
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.log('Error fetching users:', error);
     return [];
   }
 };
-
