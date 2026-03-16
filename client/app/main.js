@@ -57,10 +57,13 @@ export default function MainScreen() {
     const loadUser = () => {
       try {
         const savedUser = localStorage.getItem('koperasi_user');
-        if (savedUser && !user) {
+        if (savedUser) {
           const parsedUser = JSON.parse(savedUser);
           setUser(parsedUser);
           setUserData(parsedUser);
+        } else {
+          // Jika tidak ada user di storage, paksa ke halaman login
+          router.replace('/');
         }
       } catch (e) {}
     };
@@ -221,7 +224,12 @@ export default function MainScreen() {
 
   const confirmLogout = () => {
     setUser(null);
-    router.replace('/index');
+    try {
+      localStorage.removeItem('koperasi_user'); // Bersihkan storage agar tidak auto-login lagi
+    } catch (e) {}
+    
+    // Gunakan '/' untuk kembali ke halaman index utama di root folder app
+    router.replace('/'); 
     setShowLogoutModal(false);
   };
 
