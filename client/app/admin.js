@@ -191,7 +191,6 @@ export default function AdminScreen() {
         try {
             await updateOrderStatus(orderId, newStatus);
             fetchOrders(); 
-            // Opsional: showAlert('Sukses', 'Status diperbarui'); 
         } catch (error) {
             showAlert('Gagal', 'Gagal memperbarui status ke server.');
         }
@@ -239,6 +238,42 @@ export default function AdminScreen() {
     showAlert('Sukses', 'Top Up Diterima.');
   };
 
+  // --- RENDER FUNCTIONS (Agar ScrollView Utama Tidak Konflik dengan FlatList) ---
+  const renderOrders = () => (
+    <View style={{padding: 10}}>
+      {orders.length === 0 && <Text style={{textAlign:'center', marginTop:20}}>Belum ada pesanan.</Text>}
+      {orders.map((order) => (
+        <View key={order.id} style={styles.card}>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+            <Text style={styles.bold}>ID: {order.id}</Text>
+            <Text style={{fontSize: 10, color: 'gray'}}>{order.date || ''}</Text>
+          </View>
+          <Text>Pembeli: <Text style={styles.bold}>{order.userName}</Text></Text>
+          <Text style={{marginBottom:5}}>Alamat: {order.address}</Text>
+          <View style={styles.orderDetailContainer}>
+            <Text style={styles.orderDetailTitle}>🛒 Rincian Barang:</Text>
+            {order.items?.map((item, index) => (
+              <View key={index} style={styles.orderDetailItem}>
+                <Text style={{flex: 1, fontSize: 13}}>• {item.name}</Text>
+                <Text style={{fontWeight: 'bold', fontSize: 13}}>x{item.quantity}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={[styles.bold, {marginTop: 10, color: '#D32F2F', fontSize: 16}]}>
+            Total: Rp {order.total}
+          </Text>
+          <View style={styles.statusBox}>
+            <Text>Status: <Text style={{fontWeight: 'bold', color: '#4CAF50'}}>{order.status}</Text></Text>
+            <View style={styles.actions}>
+              <Button title="Proses" onPress={() => handleStatusChange(order.id, 'Sedang Diproses')} />
+              <Button title="Kirim" onPress={() => handleStatusChange(order.id, 'Dikirim')} />
+            </View>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+
   return (
     <SafeAreaView style={{ flex:1, backgroundColor: '#f0f0f0' }}> 
       <StatusBar barStyle="light-content" backgroundColor="#333" />
@@ -252,69 +287,22 @@ export default function AdminScreen() {
         </View>
 
         <View style={styles.tabSwitch}>
-          <TouchableOpacity style={[styles.tabBtn, activeTab==='orders' && styles.activeTab]} onPress={() => setActiveTab('orders')}>
-            <Text style={{fontWeight:'bold'}}>Pesanan</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tabBtn, activeTab==='products' && styles.activeTab]} onPress={() => setActiveTab('products')}>
-            <Text style={{fontWeight:'bold'}}>Produk</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tabBtn, activeTab==='members' && styles.activeTab]} onPress={() => setActiveTab('members')}>
-            <Text style={{fontWeight:'bold'}}>Saldo</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tabBtn, activeTab==='approve' && styles.activeTab]} onPress={() => setActiveTab('approve')}>
-            <Text style={{fontWeight:'bold'}}>Approve</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.tabBtn, activeTab==='database' && styles.activeTab]} onPress={() => setActiveTab('database')}>
-            <Text style={{fontWeight:'bold'}}>Database</Text>
-          </TouchableOpacity>
+          {['orders', 'products', 'members', 'approve', 'database'].map((tab) => (
+            <TouchableOpacity 
+              key={tab}
+              style={[styles.tabBtn, activeTab === tab && styles.activeTab]} 
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={{fontWeight:'bold', fontSize: 10}}>
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <ScrollView style={{flex:1}}>
-          {/* CONTENT: ORDERS */}
-          {activeTab === 'orders' && (
-            <View style={{padding: 10}}>
-              {orders.length === 0 && <Text style={{textAlign:'center', marginTop:20}}>Belum ada pesanan.</Text>}
-              {orders.map((order) => (
-                <View key={order.id} style={styles.card}>
-                  <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                    <Text style={styles.bold}>ID: {order.id}</Text>
-                    <Text style={{fontSize: 10, color: 'gray'}}>{order.date || ''}</Text>
-                  </View>
-                  
-                  <Text>Pembeli: <Text style={styles.bold}>{order.userName}</Text></Text>
-                  <Text style={{marginBottom:5}}>Alamat: {order.address}</Text>
+          {activeTab === 'orders' && renderOrders()}
 
-                  <View style={styles.orderDetailContainer}>
-                    <Text style={styles.orderDetailTitle}>🛒 Rincian Barang:</Text>
-                    {order.items && order.items.length > 0 ? (
-                      order.items.map((item, index) => (
-                        <View key={index} style={styles.orderDetailItem}>
-                          <Text style={{flex: 1, fontSize: 13}}>• {item.name}</Text>
-                          <Text style={{fontWeight: 'bold', fontSize: 13}}>x{item.quantity}</Text>
-                        </View>
-                      ))
-                    ) : (
-                      <Text style={{fontSize: 12, color: 'gray', fontStyle: 'italic'}}>Tidak ada detail barang</Text>
-                    )}
-                  </View>
-
-                  <Text style={[styles.bold, {marginTop: 10, color: '#D32F2F', fontSize: 16}]}>
-                    Total: Rp {order.total}
-                  </Text>
-                  
-                  <View style={styles.statusBox}>
-                    <Text>Status: <Text style={{fontWeight: 'bold', color: '#4CAF50'}}>{order.status}</Text></Text>
-                    <View style={styles.actions}>
-                      <Button title="Proses" onPress={() => handleStatusChange(order.id, 'Sedang Diproses')} />
-                      <Button title="Kirim" onPress={() => handleStatusChange(order.id, 'Dikirim')} />
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {/* CONTENT: PRODUCTS */}
           {activeTab === 'products' && (
             <View style={{padding: 10}}>
               <View style={styles.formCard}>
@@ -342,35 +330,28 @@ export default function AdminScreen() {
                     <Text style={styles.uploadText}>Upload Foto Hanya Mobile</Text>
                   </View>
                 )}
-                
                 <Button title="Simpan Produk" onPress={handleAddProduct} />
               </View>
 
-              <FlatList
-                data={products}
-                scrollEnabled={false}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={({item}) => (
-                  <View style={styles.prodItem}>
-                    {item.image && <Image source={{ uri: item.image }} style={styles.prodThumb} />}
-                    <View style={{flex:1}}>
-                      <Text style={{fontWeight:'bold'}}>{item.name}</Text>
-                      <Text style={{fontSize:12}}>Rp {item.price}</Text>
-                    </View>
-                    <TouchableOpacity style={styles.btnDelete} onPress={() => handleDeleteProduct(item.id)}>
-                      <Text style={{color:'white'}}>Hapus</Text>
-                    </TouchableOpacity>
+              {/* Menggunakan map sebagai pengganti FlatList di dalam ScrollView agar tidak error */}
+              {products.map((item) => (
+                <View key={item.id} style={styles.prodItem}>
+                  {item.image && <Image source={{ uri: item.image }} style={styles.prodThumb} />}
+                  <View style={{flex:1}}>
+                    <Text style={{fontWeight:'bold'}}>{item.name}</Text>
+                    <Text style={{fontSize:12}}>Rp {item.price}</Text>
                   </View>
-                )}
-              />
+                  <TouchableOpacity style={styles.btnDelete} onPress={() => handleDeleteProduct(item.id)}>
+                    <Text style={{color:'white'}}>Hapus</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           )}
 
-          {/* CONTENT: MEMBERS */}
           {activeTab === 'members' && (
             <View style={{padding: 10}}>
                 <Text style={{textAlign:'center', marginBottom:10, fontSize:16}}>Saldo Anggota</Text>
-                {users.length === 0 && <Text style={{textAlign:'center'}}>Belum ada anggota.</Text>}
                 {users.map((u) => (
                   <View key={u.id} style={styles.card}>
                     <View>
@@ -386,7 +367,6 @@ export default function AdminScreen() {
             </View>
           )}
 
-          {/* CONTENT: APPROVE */}
           {activeTab === 'approve' && (
             <View style={{padding: 10}}>
                 <Text style={{textAlign:'center', marginBottom:10, fontWeight:'bold'}}>Permintaan Top Up</Text>
@@ -403,7 +383,6 @@ export default function AdminScreen() {
             </View>
           )}
 
-          {/* CONTENT: DATABASE */}
           {activeTab === 'database' && (
             <View style={{padding: 10}}>
                 <View style={styles.databaseHeader}>
@@ -444,7 +423,7 @@ export default function AdminScreen() {
         </ScrollView>
       </View>
 
-      {/* --- MODAL CUSTOM ALERT --- */}
+      {/* --- MODALS (Tetap Sama Seperti Logika Awal) --- */}
       <Modal animationType="fade" transparent={true} visible={showCustomAlert}>
         <View style={styles.alertOverlay}>
           <View style={styles.alertBox}>
@@ -459,7 +438,6 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
-      {/* --- MODAL INPUT NOMINAL --- */}
       <Modal animationType="slide" transparent={true} visible={showAmountModal}>
         <View style={styles.modalContainer}>
           <View style={styles.modalBox}>
@@ -473,7 +451,6 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
-      {/* --- MODAL KONFIRMASI --- */}
       <Modal animationType="fade" transparent={true} visible={showConfirmModal}>
         <View style={styles.modalContainer}>
           <View style={styles.modalBox}>
@@ -490,6 +467,7 @@ export default function AdminScreen() {
   );
 }
 
+// STYLES TETAP SAMA (Tidak Diubah)
 const styles = StyleSheet.create({
   container: { flex:1, backgroundColor: '#f0f0f0' },
   header: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding: 15, backgroundColor: '#333' },
