@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Gunakan URL Server (Backend), bukan URL App (Frontend)
 const API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://koperasi-admin-app-jknh.vercel.app/' // <--- GANTI DENGAN LINK SERVERMU
+  ? 'https://koperasi-admin-app-jknh.vercel.app' // <--- GANTI DENGAN LINK SERVERMU
   : 'http://localhost:5000';
 
 export const loginUser = async (username, password) => {

@@ -5,19 +5,23 @@ const mongoose = require('mongoose');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
+// --- REVISI 1: MIDDLEWARE CORS DIPERKETAT ---
+app.use(cors({
+  origin: ["https://koperasi-admin-app.vercel.app", "http://localhost:3000"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 app.use(express.json());
 
-// --- 1. KONEKSI MONGODB ---
-// Ganti link ini dengan link dari MongoDB Atlas kamu nanti
-const MONGO_URI = "mongodb+srv://rezaadmin:I4p3KqVEmEv5H96w@cluster0.oa0pdog.mongodb.net/?appName=Cluster0";
+// --- REVISI 2: KONEKSI MONGODB (PAKAI DATABASE NAME) ---
+// Saya tambahkan /koperasi_db agar data masuk ke database yang benar
+const MONGO_URI = process.env.MONGODB_URI || "mongodb+srv://rezaadmin:I4p3KqVEmEv5H96w@cluster0.oa0pdog.mongodb.net/koperasi_db?retryWrites=true&w=majority";
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log("✅ Terhubung ke MongoDB Atlas"))
   .catch(err => console.error("❌ Gagal konek MongoDB:", err));
 
-// --- 2. MODEL DATA (Sesuai database.json kamu) ---
+// --- MODEL DATA ---
 const User = mongoose.model('User', new mongoose.Schema({
     name: String, username: { type: String, unique: true }, password: String,
     nik: String, phone: String, role: { type: String, default: 'customer' },
@@ -38,9 +42,8 @@ const TopupRequest = mongoose.model('TopupRequest', new mongoose.Schema({
     userId: String, amount: Number, status: String, date: String
 }));
 
-// --- 3. ROUTES (LOGIKA ASLI KAMU) ---
+// --- ROUTES ---
 
-// 1. Login
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     const user = await User.findOne({ username, password });
@@ -48,7 +51,6 @@ app.post('/login', async (req, res) => {
     else res.status(401).json({ success: false, message: 'Username atau password salah' });
 });
 
-// 2. Register
 app.post('/register', async (req, res) => {
     const { name, username, password, nik, phone } = req.body;
     const existing = await User.findOne({ username });
@@ -59,7 +61,6 @@ app.post('/register', async (req, res) => {
     res.json({ success: true, user: newUser });
 });
 
-// 4. Update Saldo (TopUp / Bayar Simpanan) - LOGIKA ASLI REZA
 app.post('/user/update-balance', async (req, res) => {
     const { userId, amount, type } = req.body;
     const user = await User.findById(userId);
@@ -93,7 +94,6 @@ app.post('/user/update-balance', async (req, res) => {
     res.json({ success: true, user });
 });
 
-// 5. Create Order (Checkout) - LOGIKA ASLI REZA
 app.post('/orders', async (req, res) => {
     const { userId, cartItems, total, address } = req.body;
     const user = await User.findById(userId);
@@ -110,7 +110,6 @@ app.post('/orders', async (req, res) => {
     res.json({ success: true, order: newOrder, user });
 });
 
-// 12. List Request Top Up (Admin)
 app.get('/topup/requests', async (req, res) => {
     const requests = await TopupRequest.find({ status: 'Menunggu Konfirmasi' });
     const fullRequests = await Promise.all(requests.map(async (r) => {
@@ -120,11 +119,15 @@ app.get('/topup/requests', async (req, res) => {
     res.json(fullRequests);
 });
 
-// ... (Route lain seperti get products, dll tinggal panggil Model.find() )
 app.get('/products', async (req, res) => res.json(await Product.find()));
 
-// EXPORT UNTUK VERCEL
+// --- REVISI 3: HANDLING ROOT UNTUK VERCEL ---
+app.get('/', (req, res) => {
+    res.send('Backend Koperasi API is running...');
+});
+
 if (process.env.NODE_ENV !== 'production') {
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
+
 module.exports = app;
