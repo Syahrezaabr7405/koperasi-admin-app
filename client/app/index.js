@@ -23,70 +23,67 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  
+  // --- STATE MODAL ERROR BARU ---
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  // ----------------------------------
 
   const router = useRouter();
   const { setUser } = useCart();
 
-  // Reset input saat halaman dimuat
   useEffect(() => {
     setUsername('');
     setPassword('');
   }, []);
 
-  const handleLogin = () => {
-    if (!username || !password) {
-      setErrorMessage('Harap isi username dan password.');
-      setShowErrorModal(true);
-      return;
-    }
+  const handleLogin = async () => {
+    if (!username || !password) return;
     setShowLoginModal(true);
   };
 
   const processLogin = async () => {
     setShowLoginModal(false);
+    const result = await loginUser(username, password);
     
-    try {
-      const result = await loginUser(username, password);
-      
-      if (result.success) {
-        setUser(result.user);
-        
-        // REVISI: Gunakan replace agar user tidak bisa "Back" ke halaman login lagi setelah masuk
-        if (result.user.role === 'admin') {
-          router.replace('/admin'); 
-        } else {
-          router.replace('/main');
-        }
+    if (result.success) {
+      setUser(result.user);
+      if (result.user.role === 'admin') {
+        router.replace('/admin');
       } else {
-        setErrorMessage(result.message || 'Username atau password salah.');
-        setShowErrorModal(true);
+        router.replace('/main');
       }
-    } catch (error) {
-      // Menangani error jika server mati atau timeout
-      setErrorMessage('Gagal terhubung ke server. Pastikan internet aktif.');
+    } else {
+      // --- JIKA LOGIN GAGAL, TAMPILKAN MODAL ERROR ---
+      setErrorMessage(result.message || 'Username atau password salah.');
       setShowErrorModal(true);
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Background Image tetap sama */}
-      <Image source={Background} style={styles.backgroundImage} resizeMode="cover" />
+      {/* Background Image */}
+      <Image 
+        source={Background} 
+        style={styles.backgroundImage} 
+        resizeMode="cover"
+      />
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* Scrollable Card */}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.card}>
-          {/* Logo & Title Section tetap sama */}
           <View style={styles.logoContainer}>
             <Image source={Logo} style={styles.logo} resizeMode="contain" />
           </View>
+
           <View style={styles.titleContainer}>
             <Text style={styles.title}>KOPERASI MERAH PUTIH</Text>
             <Text style={styles.subtitle}>Kelurahan Jati</Text>
           </View>
 
-          {/* Form Section */}
           <View style={styles.formContainer}>
             <View style={styles.inputWrapper}>
               <Ionicons name="person-outline" size={20} color="#D32F2F" style={styles.inputIcon} />
@@ -95,6 +92,7 @@ export default function LoginScreen() {
                 style={styles.inputWithIcon} 
                 value={username} 
                 onChangeText={setUsername}
+                placeholderTextColor="#888"
                 autoCapitalize="none"
               />
             </View>
@@ -107,6 +105,7 @@ export default function LoginScreen() {
                 value={password} 
                 onChangeText={setPassword} 
                 secureTextEntry={!showPassword}
+                placeholderTextColor="#888"
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
                 <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color="#888" />
@@ -114,12 +113,7 @@ export default function LoginScreen() {
             </View>
             
             <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                onPress={handleLogin} 
-                style={{ backgroundColor: '#D32F2F', padding: 15, borderRadius: 15, alignItems: 'center' }}
-              >
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>MASUK</Text>
-              </TouchableOpacity>
+              <Button title="MASUK" onPress={handleLogin} color="#D32F2F" />
             </View>
 
             <TouchableOpacity style={styles.forgotLink} onPress={() => router.push('/forgot')}>
@@ -127,18 +121,57 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Footer */}
           <View style={styles.footerContainer}>
             <Text style={styles.footerText}>Belum punya akun?</Text>
             <TouchableOpacity onPress={() => router.push('/register')}>
-              <Text style={styles.footerLink}>DAFTAR SEKARANG</Text>
+               <Text style={styles.footerLink}>DAFTAR SEKARANG</Text>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
-      {/* Modal Konfirmasi & Error tetap sama seperti sebelumnya */}
-      {/* ... (Modal logic yang sudah kamu buat sudah bagus) */}
+      {/* Modal Konfirmasi Login */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showLoginModal}
+        onRequestClose={() => setShowLoginModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Konfirmasi Login</Text>
+            <Text style={styles.modalText}>Apakah Anda ingin login dengan username "{username}"?</Text>
+            <View style={styles.modalButtonContainer}>
+              <Button title="Batal" onPress={() => setShowLoginModal(false)} color="#888"/>
+              <Button title="Masuk" onPress={processLogin} color="#D32F2F"/>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL ALERT ERROR (BARU) --- */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={showErrorModal}
+        onRequestClose={() => setShowErrorModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            {/* Icon Warning */}
+            <Text style={styles.errorIcon}>⚠️</Text>
+            
+            <Text style={styles.modalTitle}>Login Gagal</Text>
+            <Text style={styles.modalText}>{errorMessage}</Text>
+            
+            <View style={styles.modalButtonContainer}>
+              {/* Hanya tombol OK untuk menutup */}
+              <Button title="OK" onPress={() => setShowErrorModal(false)} color="#D32F2F"/>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* ------------------------------------- */}
     </View>
   );
 }
