@@ -1,12 +1,9 @@
-// src/services/api.js
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000'; //buat API Windows
-//const API_URL = 'http://192.168.100.40:5000';  //buat API hp
-
-// Ganti IP di atas jika testing di HP: 
-// Android Emulator: 'http://10.0.2.2:5000'
-// HP Fisik (Wifi sama): 'http://192.168.1.x:5000' (cek ipconfig/ifconfig)
+// Gunakan URL Server (Backend), bukan URL App (Frontend)
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://koperasi-admin-app-jknh.vercel.app/' // <--- GANTI DENGAN LINK SERVERMU
+  : 'http://localhost:5000';
 
 export const loginUser = async (username, password) => {
   try {
