@@ -120,16 +120,28 @@ app.get('/topup/requests', async (req, res) => {
 });
 
 app.put('/topup/approve/:id', async (req, res) => {
-    const request = await TopupRequest.findById(req.params.id);
-    if (!request) return res.status(404).json({ message: 'Request tidak ditemukan' });
-    
-    const user = await User.findById(request.userId);
-    user.balance += request.amount;
-    request.status = 'Disetujui';
-    
-    await user.save();
-    await request.save();
-    res.json({ success: true });
+    try {
+        const request = await TopupRequest.findById(req.params.id);
+        if (!request) return res.status(404).json({ success: false, message: 'Request tidak ditemukan' });
+        
+        // Pastikan User ditemukan sebelum akses .balance
+        const user = await User.findById(request.userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User pemilik request ini tidak ditemukan di database' });
+        }
+
+        // Tambah saldo dengan aman (jika balance undefined, mulai dari 0)
+        user.balance = (user.balance || 0) + Number(request.amount);
+        request.status = 'Disetujui';
+        
+        await user.save();
+        await request.save();
+        
+        res.json({ success: true, message: 'Top up berhasil disetujui' });
+    } catch (err) {
+        console.error("Error Approve:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 // --- ORDERS ---

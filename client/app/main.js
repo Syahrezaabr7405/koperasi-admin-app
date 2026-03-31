@@ -144,7 +144,7 @@ export default function MainScreen() {
     }
 
     setShowTopUpModal(false);
-    const res = await requestTopUp(user.id, amountNum);
+    const res = await requestTopUp(user._id || user.id, amountNum);
     if(res.success) {
       setTopUpAmount('');
       setShowInstructionModal(true);
