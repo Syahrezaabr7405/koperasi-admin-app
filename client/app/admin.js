@@ -275,9 +275,9 @@ export default function AdminScreen() {
             <View style={{padding: 10}}>
               {orders.length === 0 && <Text style={{textAlign:'center', marginTop:20}}>Belum ada pesanan.</Text>}
               {orders.map((order) => (
-                <View key={order.id} style={styles.card}>
+                <View key={order._id} style={styles.card}> {/* Gunakan _id */}
                   <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                    <Text style={styles.bold}>ID: {order.id}</Text>
+                    <Text style={styles.bold}>ID: {order._id}</Text> {/* Gunakan _id */}
                     <Text style={{fontSize: 10, color: 'gray'}}>{order.date || ''}</Text>
                   </View>
                   
@@ -305,8 +305,8 @@ export default function AdminScreen() {
                   <View style={styles.statusBox}>
                     <Text>Status: <Text style={{fontWeight: 'bold', color: '#4CAF50'}}>{order.status}</Text></Text>
                     <View style={styles.actions}>
-                      <Button title="Proses" onPress={() => handleStatusChange(order.id, 'Sedang Diproses')} />
-                      <Button title="Kirim" onPress={() => handleStatusChange(order.id, 'Dikirim')} />
+                      <Button title="Proses" onPress={() => handleStatusChange(order._id, 'Sedang Diproses')} />
+                      <Button title="Kirim" onPress={() => handleStatusChange(order._id, 'Dikirim')} />
                     </View>
                   </View>
                 </View>
@@ -392,10 +392,10 @@ export default function AdminScreen() {
                 <Text style={{textAlign:'center', marginBottom:10, fontWeight:'bold'}}>Permintaan Top Up</Text>
                 {topupRequests.length === 0 && <Text style={{textAlign:'center'}}>Tidak ada request pending.</Text>}
                 {topupRequests.map((req) => (
-                  <View key={req.id} style={styles.card}>
-                    <Text style={styles.bold}>{req.userName} (@{req.username})</Text>
+                  <View key={req._id} style={styles.card}> {/* Ganti req.id jadi req._id */}
+                    <Text style={styles.bold}>{req.userName || 'Tanpa Nama'} (@{req.username || 'anonim'})</Text>
                     <Text>Nominal: <Text style={{color:'#D32F2F', fontWeight:'bold'}}>Rp {req.amount}</Text></Text>
-                    <TouchableOpacity style={[styles.btnPay, {backgroundColor:'#4CAF50', marginTop:10}]} onPress={() => handleApproveTopUp(req.id)}>
+                    <TouchableOpacity style={[styles.btnPay, {backgroundColor:'#4CAF50', marginTop:10}]} onPress={() => handleApproveTopUp(req._id)}>
                       <Text style={styles.txtBtn}>Terima Saldo</Text>
                     </TouchableOpacity>
                   </View>

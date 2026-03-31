@@ -85,9 +85,11 @@ export const getUser = async () => {
 };
 
 export const updateBalance = async (userId, amount, type) => {
-  // Kirim userId (pastikan ini _id dari MongoDB)
+  // Tambahkan log untuk debugging di console
+  console.log("Mengirim Update Balance ke ID:", userId);
+  
   const response = await axios.post(`${API_URL}/user/update-balance`, { 
-    userId, 
+    userId: userId, // Pastikan ini adalah _id dari MongoDB
     amount: Number(amount), 
     type 
   });

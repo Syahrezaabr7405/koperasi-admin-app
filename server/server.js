@@ -102,6 +102,45 @@ app.get('/users', async (req, res) => {
     res.json(users);
 });
 
+// --- FIX ERROR 404: UPDATE BALANCE MANUAL ---
+app.post('/user/update-balance', async (req, res) => {
+    try {
+        const { userId, amount, type } = req.body;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
+
+        if (type === 'topup') {
+            user.balance = (user.balance || 0) + Number(amount);
+        } else {
+            user.balance = (user.balance || 0) - Number(amount);
+        }
+
+        await user.save();
+        res.json({ success: true, balance: user.balance });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// --- FIX ERROR 404: HISTORY TOP UP ---
+app.get('/topup/history', async (req, res) => {
+    try {
+        // Mengambil semua request yang sudah 'Disetujui'
+        const history = await TopupRequest.find({ status: 'Disetujui' });
+        const fullHistory = await Promise.all(history.map(async (h) => {
+            const user = await User.findById(h.userId);
+            return { 
+                ...h._doc, 
+                userName: user ? user.name : 'User Dihapus',
+                id: h._id 
+            };
+        }));
+        res.json(fullHistory);
+    } catch (err) {
+        res.status(500).json({ success: false });
+    }
+});
+
 // --- SALDO & TOPUP ---
 app.post('/topup/request', async (req, res) => {
     const { userId, amount } = req.body;
@@ -111,12 +150,21 @@ app.post('/topup/request', async (req, res) => {
 });
 
 app.get('/topup/requests', async (req, res) => {
-    const requests = await TopupRequest.find({ status: 'Menunggu Konfirmasi' });
-    const fullRequests = await Promise.all(requests.map(async (r) => {
-        const user = await User.findById(r.userId);
-        return { ...r._doc, userName: user ? user.name : 'Unknown', id: r._id };
-    }));
-    res.json(fullRequests);
+    try {
+        const requests = await TopupRequest.find({ status: 'Menunggu Konfirmasi' });
+        const fullRequests = await Promise.all(requests.map(async (r) => {
+            const user = await User.findById(r.userId);
+            return { 
+                ...r._doc, 
+                userName: user ? user.name : 'Unknown', 
+                username: user ? user.username : '-', // Tambahkan username juga
+                id: r._id 
+            };
+        }));
+        res.json(fullRequests);
+    } catch (err) {
+        res.status(500).json([]);
+    }
 });
 
 app.put('/topup/approve/:id', async (req, res) => {
@@ -180,6 +228,16 @@ app.post('/orders', async (req, res) => {
 });
 
 app.get('/orders', async (req, res) => res.json(await Order.find()));
+
+app.get('/user/:id', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (user) res.json(user);
+        else res.status(404).json({ message: 'User tidak ditemukan' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
 
 app.put('/orders/:id', async (req, res) => {
     const { status } = req.body;
