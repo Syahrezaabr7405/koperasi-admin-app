@@ -349,7 +349,7 @@ export default function AdminScreen() {
               <FlatList
                 data={products}
                 scrollEnabled={false}
-                keyExtractor={(item) => item.id.toString()}
+                keyExtractor={(item) => (item._id || item.id).toString()}
                 renderItem={({item}) => (
                   <View style={styles.prodItem}>
                     {item.image && <Image source={{ uri: item.image }} style={styles.prodThumb} />}
@@ -357,7 +357,7 @@ export default function AdminScreen() {
                       <Text style={{fontWeight:'bold'}}>{item.name}</Text>
                       <Text style={{fontSize:12}}>Rp {item.price}</Text>
                     </View>
-                    <TouchableOpacity style={styles.btnDelete} onPress={() => handleDeleteProduct(item.id)}>
+                    <TouchableOpacity style={styles.btnDelete} onPress={() => handleDeleteProduct(item._id || item.id)}>
                       <Text style={{color:'white'}}>Hapus</Text>
                     </TouchableOpacity>
                   </View>
@@ -420,7 +420,7 @@ export default function AdminScreen() {
                     <Text style={[styles.cell, styles.headerCell]}>Saldo</Text>
                   </View>
                   {users.map((u) => (
-                    <View key={u.id} style={styles.row}>
+                    <View key={u._id || u.id} style={styles.row}>
                       <Text style={styles.cell}>{u.username}</Text>
                       <Text style={styles.cell}>{u.name}</Text>
                       <Text style={styles.cell}>{u.nik || '-'}</Text>

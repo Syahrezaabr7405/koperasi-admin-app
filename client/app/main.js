@@ -95,9 +95,10 @@ export default function MainScreen() {
   const fetchOrders = async () => {
     if(!user) return;
     const data = await getOrders();
-    // Filter hanya pesanan milik user yang sedang login
-    const myOrders = data.filter(o => o.userId === user.id);
-    setOrders(myOrders.reverse()); // Terbaru di atas
+    // Ambil ID dengan aman
+    const currentUserId = user._id || user.id;
+    const myOrders = data.filter(o => o.userId === currentUserId);
+    setOrders(myOrders.reverse());
   };
   // --------------------------------------------------
 
@@ -204,7 +205,7 @@ export default function MainScreen() {
 
   const handleCheckout = async () => {
     if (cart.length === 0 || !address) return showAlert('Kosong', 'Keranjang atau Alamat belum diisi.');
-    const res = await createOrder({ userId: user.id, cartItems: cart, total: cartTotal, address });
+    const res = await createOrder({ userId: user._id || user.id, cartItems: cart, total: cartTotal, address });
     if (res.success) {
       showAlert('Sukses', 'Pesanan berhasil dibuat. Saldo dipotong.');
       setUser(res.user);
