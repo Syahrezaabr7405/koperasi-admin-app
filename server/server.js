@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const midtransClient = require('midtrans-client'); // Tambahan Midtrans
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,7 +14,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// 2. LOGIKA KONEKSI MONGODB (SERVERLESS OPTIMIZED)
+// 2. KONFIGURASI MIDTRANS (Ganti Key dengan milikmu di Dashboard Midtrans)
+let snap = new midtransClient.Snap({
+    isProduction: false, // Sandbox mode
+    serverKey: process.env.MIDTRANS_SERVER_KEY || 'Mid-server-50tRM7pr8I7bgaqfNryc6UqR',
+    clientKey: process.env.MIDTRANS_CLIENT_KEY || 'Mid-client-R2O3nIJD0IqcM1Fv'
+});
+
+// 3. LOGIKA KONEKSI MONGODB
 const MONGO_URI = process.env.MONGODB_URI || "mongodb+srv://rezaadmin:I4p3KqVEmEv5H96w@cluster0.oa0pdog.mongodb.net/koperasi_db?retryWrites=true&w=majority";
 
 let cachedDb = null;
@@ -33,7 +41,7 @@ app.use(async (req, res, next) => {
   }
 });
 
-// 3. MODEL DATA
+// 4. MODEL DATA (Tetap sama)
 const User = mongoose.model('User', new mongoose.Schema({
     name: String, username: { type: String, unique: true }, password: String,
     nik: String, phone: String, role: { type: String, default: 'customer' },
@@ -41,18 +49,77 @@ const User = mongoose.model('User', new mongoose.Schema({
     wajibMonths: { type: Number, default: 0 }, lastPaidWajib: String
 }));
 
-const Product = mongoose.model('Product', new mongoose.Schema({
-    name: String, price: Number, image: String
-}));
-
-const Order = mongoose.model('Order', new mongoose.Schema({
-    userId: String, userName: String, items: Array, total: Number,
-    address: String, status: { type: String, default: 'Sedang Diproses' }, date: String
-}));
-
 const TopupRequest = mongoose.model('TopupRequest', new mongoose.Schema({
     userId: String, amount: Number, status: { type: String, default: 'Menunggu Konfirmasi' }, date: String
 }));
+
+// --- ENDPOINT MIDTRANS: BUAT TRANSAKSI ---
+app.post('/api/topup/charge', async (req, res) => {
+    try {
+        const { userId, amount, username } = req.body;
+        
+        if (!userId) return res.status(400).json({ message: "UserId diperlukan" });
+
+        let parameter = {
+            "transaction_details": {
+                "order_id": "TOPUP-" + Date.now(),
+                "gross_amount": Number(amount)
+            },
+            "customer_details": {
+                "first_name": username
+            },
+            // METADATA: Sangat penting untuk menyimpan userId agar bisa dibaca saat callback lunas
+            "metadata": {
+                "user_id": userId
+            },
+            "enabled_payments": ["gopay", "shopeepay", "other_qris"]
+        };
+
+        const transaction = await snap.createTransaction(parameter);
+        res.json({ 
+            success: true, 
+            token: transaction.token, 
+            redirect_url: transaction.redirect_url 
+        });
+    } catch (err) {
+        console.error("Midtrans Charge Error:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// --- ENDPOINT MIDTRANS: CALLBACK (WEBHOOK) ---
+// Midtrans akan memanggil URL ini secara otomatis saat user selesai bayar
+app.post('/api/midtrans-callback', async (req, res) => {
+    const data = req.body;
+
+    try {
+        // Cek apakah transaksi sukses (settlement = lunas, capture = kartu kredit sukses)
+        if (data.transaction_status === 'settlement' || data.transaction_status === 'capture') {
+            const amount = Number(data.gross_amount);
+            const userId = data.metadata ? data.metadata.user_id : null;
+
+            if (userId) {
+                // 1. Tambah Saldo User secara otomatis
+                await User.findByIdAndUpdate(userId, { $inc: { balance: amount } });
+
+                // 2. Catat di TopupRequest sebagai 'Disetujui' secara otomatis
+                const autoRequest = new TopupRequest({
+                    userId: userId,
+                    amount: amount,
+                    status: 'Disetujui',
+                    date: new Date().toISOString()
+                });
+                await autoRequest.save();
+
+                console.log(`[OTOMATIS] Saldo user ${userId} bertambah Rp${amount}`);
+            }
+        }
+        res.status(200).send('OK');
+    } catch (err) {
+        console.error("Callback Error:", err);
+        res.status(500).send("Internal Error");
+    }
+});
 
 // 4. ROUTES
 
