@@ -5,7 +5,6 @@ import {
   FlatList, 
   TouchableOpacity, 
   StyleSheet, 
-  Alert, 
   TextInput, 
   ScrollView, 
   Image, 
@@ -15,104 +14,84 @@ import {
   Modal 
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons'; 
-import Logo from '../assets/images/Logo.jpeg'; 
-import Background from '../assets/images/background.jpg';
 import { useRouter } from 'expo-router';
+
+// Imports internal
+import TopUpScreen from './src/screens/TopUpScreen'; 
 import { 
   getProducts, 
   updateBalance, 
   createOrder, 
-  requestTopUp,
-  getOrders   
+  getOrders 
 } from '../src/services/api';
 import { useCart } from '../src/CartContext';
 
 export default function MainScreen() {
   const router = useRouter();
   const { cart, addToCart, removeFromCart, clearCart, cartTotal, user, setUser } = useCart();
+  
+  // UI States
   const [activeTab, setActiveTab] = useState('shop'); 
   const [products, setProducts] = useState([]);
-  const [address, setAddress] = useState('');
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-  
-  // STATE MODAL TOP UP 
-  const [showTopUpModal, setShowTopUpModal] = useState(false);
-  const [topUpAmount, setTopUpAmount] = useState('');
-  const [showInstructionModal, setShowInstructionModal] = useState(false);
-  // ---------------------------------
-
-  const [userData, setUserData] = useState(null);
-  
-  // --- STATE PESANAN (POIN 2) ---
   const [orders, setOrders] = useState([]);
-  // -------------------------------
-
-  // --- STATE MODAL ALERT CUSTOM ---
+  const [address, setAddress] = useState('');
+  
+  // Modals States
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isTopUpVisible, setIsTopUpVisible] = useState(false);
   const [showCustomAlert, setShowCustomAlert] = useState(false);
   const [alertData, setAlertData] = useState({ title: '', message: '', onConfirm: null, showCancel: false });
-  // --------------------------------------------------
 
-  // Load User
+  // 1. Inisialisasi User & Sinkronisasi LocalStorage
   useEffect(() => {
-    const loadUser = () => {
+    const loadUserFromStorage = () => {
       try {
-        // Pengecekan apakah kita di lingkungan Browser (Web)
         const isWeb = typeof window !== 'undefined' && window.localStorage;
-        
         if (isWeb) {
           const savedUser = localStorage.getItem('koperasi_user');
           if (savedUser) {
-            const parsedUser = JSON.parse(savedUser);
-            setUser(parsedUser);
-            setUserData(parsedUser);
-          } else {
+            setUser(JSON.parse(savedUser));
+          } else if (!user) {
             router.replace('/');
           }
         } else {
-          // Jika di Mobile (Expo Go), sementara pakai data dummy atau arahkan ke login
-          // Karena localStorage tidak ada di Mobile.
           if (!user) router.replace('/');
         }
       } catch (e) {
         console.error("Gagal load user:", e);
       }
     };
-    loadUser();
+    loadUserFromStorage();
   }, []);
 
+  // 2. Fetch Data berdasarkan Tab Aktif
   useEffect(() => {
-    if (user) {
-      try {
-        localStorage.setItem('koperasi_user', JSON.stringify(user));
-      } catch (e) {}
-    }
-  }, [user]);
-
-  // --- EFFECT FETCH DATA (SHOP & ORDERS) ---
-  useEffect(() => {
-    if(activeTab === 'shop') fetchProducts();
-    // Ambil order terbaru jika user ada dan tab keranjang aktif
-    if(activeTab === 'cart' && user) fetchOrders(); 
+    if (activeTab === 'shop') fetchProducts();
+    if (activeTab === 'cart' && user) fetchOrders();
   }, [activeTab, user]);
-  // --------------------------------------------------
 
   const fetchProducts = async () => {
-    const data = await getProducts();
-    setProducts(data);
+    try {
+      const data = await getProducts();
+      setProducts(data);
+    } catch (err) {
+      console.error("Fetch products error:", err);
+    }
   };
 
-  // --- FUNGSI FETCH ORDERS (POIN 3) ---
   const fetchOrders = async () => {
-    if(!user) return;
-    const data = await getOrders();
-    // Ambil ID dengan aman
-    const currentUserId = user._id || user.id;
-    const myOrders = data.filter(o => o.userId === currentUserId);
-    setOrders(myOrders.reverse());
+    if (!user) return;
+    try {
+      const data = await getOrders();
+      const currentUserId = user._id || user.id;
+      const myOrders = data.filter(o => o.userId === currentUserId);
+      setOrders(myOrders.reverse());
+    } catch (err) {
+      console.error("Fetch orders error:", err);
+    }
   };
-  // --------------------------------------------------
 
-  // --- FUNGSI HELPER ALERT CUSTOM ---
+  // 3. Helper Alert Kustom
   const showAlert = (title, message, onConfirm = null) => {
     setAlertData({
       title,
@@ -128,127 +107,54 @@ export default function MainScreen() {
     setShowCustomAlert(false);
   };
 
-  // --- LOGIKA TOP UP ---
-  const handleTopUp = () => {
-    setShowTopUpModal(true);
-  };
-
-  const selectAmount = (amount) => {
-    setTopUpAmount(amount.toString());
-  };
-
-  const confirmTopUpRequest = async () => {
-    const amountNum = parseInt(topUpAmount);
-    if (!amountNum || amountNum < 5000) {
-      return alert('Minimal top up adalah Rp 5.000');
-    }
-
-    setShowTopUpModal(false);
-    const res = await requestTopUp(user._id || user.id, amountNum);
-    if(res.success) {
-      setTopUpAmount('');
-      setShowInstructionModal(true);
-    } else {
-      alert('Gagal mengirim permintaan');
-    }
-  };
-
-  // --- FUNGSI SIMPANAN WAJIB ---
+  // 4. Logika Transaksi (Simpanan & Checkout)
   const handleWajib = async () => {
-    // 1. Ambil data user terbaru dari state atau storage
-    let currentUser = user || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('koperasi_user')) : null);
-    
-    if (!currentUser) return showAlert('Gagal', 'User data tidak ditemukan.');
+    if (!user) return;
 
     const biayaWajib = 10000;
-    const saldoSaatIni = currentUser.balance || 0;
+    const saldoSaatIni = user.balance || 0;
 
-    // 2. Validasi Awal di Frontend (Saldo)
     if (saldoSaatIni < biayaWajib) {
-      return showAlert('Gagal', `Saldo kurang.\nSaldo: Rp ${saldoSaatIni}\nBiaya: Rp ${biayaWajib}`);
+      return showAlert('Gagal', `Saldo kurang.\nSaldo: Rp ${saldoSaatIni}\nIuran: Rp ${biayaWajib}`);
     }
 
-    // 3. Validasi: Apakah Bulan Ini Sudah Lunas?
+    // Validasi apakah bulan ini sudah bayar
     const now = new Date();
-    const lastPaid = currentUser.lastPaidWajib ? new Date(currentUser.lastPaidWajib) : null;
-    let isLunasBulanIni = false;
-
-    if (lastPaid) {
-      const bulanIni = now.getMonth();
-      const tahunIni = now.getFullYear();
-      const bulanBayar = lastPaid.getMonth();
-      const tahunBayar = lastPaid.getFullYear();
-      isLunasBulanIni = (bulanIni === bulanBayar && tahunIni === tahunBayar);
+    const lastPaid = user.lastPaidWajib ? new Date(user.lastPaidWajib) : null;
+    if (lastPaid && now.getMonth() === lastPaid.getMonth() && now.getFullYear() === lastPaid.getFullYear()) {
+      return showAlert('Info', 'Simpanan Wajib bulan ini sudah lunas.');
     }
 
-    if (isLunasBulanIni) {
-      return showAlert('Info', 'Simpanan Wajib bulan ini sudah dibayar.\nSilakan bayar bulan depan.');
-    }
-
-    // 4. Konfirmasi Pembayaran
-    showAlert('Konfirmasi', `Bayar Iuran Wajib bulan ini sebesar Rp ${biayaWajib}?`, async () => {
-      const targetId = currentUser._id || currentUser.id;
-      
-      // --- PANGGIL API ---
-      // Gunakan 'wajib' agar sinkron dengan logic includes('wajib') di server.js
-      const res = await updateBalance(targetId, biayaWajib, 'wajib');
-
+    showAlert('Konfirmasi', `Bayar iuran wajib Rp ${biayaWajib}?`, async () => {
+      const res = await updateBalance(user._id || user.id, biayaWajib, 'wajib');
       if (res.success) {
-        // AMBIL DATA LANGSUNG DARI SERVER (res.user)
-        // Ini paling aman karena saldo & jumlah bulan dijamin sama dengan DB
-        const updatedUserFromDB = res.user; 
-        
-        setUser(updatedUserFromDB);
-        setUserData(updatedUserFromDB);
-        
-        try { 
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('koperasi_user', JSON.stringify(updatedUserFromDB)); 
-          }
-        } catch(e) {
-          console.error("Gagal simpan ke localStorage", e);
-        }
-        
-        showAlert('Berhasil', `Pembayaran Wajib Berhasil!\nTotal Bulan: ${updatedUserFromDB.wajibMonths}`);
+        setUser(res.user);
+        showAlert('Berhasil', `Pembayaran Berhasil!\nTotal: ${res.user.wajibMonths} Bulan`);
       } else {
-        // Jika saldo di DB ternyata kurang, atau ada error server
-        showAlert('Gagal', res.message || 'Gagal membayar.');
+        showAlert('Gagal', res.message);
       }
     });
   };
 
-  // --- FUNGSI SIMPANAN POKOK ---
   const handlePokok = async () => {
     if (user.pokokPaid) return showAlert('Lunas', 'Simpanan Pokok sudah lunas!');
     
-    // 1. Kirim 'pokok' agar sesuai dengan server.js (atau pakai perbaikan includes saya sebelumnya)
-    // 2. Pastikan nominal 50000 dikirim
-    const res = await updateBalance(user?._id || user?.id, 50000, 'pokok');
-    
-    if(res.success) {
-      // HANYA UPDATE JIKA SERVER BERHASIL
-      const updatedUser = { 
-        ...user, 
-        balance: res.user.balance, 
-        pokokPaid: res.user.pokokPaid // Ambil status asli dari DB
-      };
-      setUser(updatedUser);
-      setUserData(updatedUser);
-      showAlert('Berhasil', 'Simpanan Pokok Lunas!');
-    } else {
-      // Jika saldo kurang (40rb < 50rb), server akan kirim success: false
-      // Tampilan TIDAK AKAN berubah jadi lunas
-      showAlert('Gagal', res.message || 'Saldo tidak cukup');
-    }
+    showAlert('Konfirmasi', 'Bayar Simpanan Pokok Rp 50.000?', async () => {
+      const res = await updateBalance(user._id || user.id, 50000, 'pokok');
+      if (res.success) {
+        setUser(res.user);
+        showAlert('Berhasil', 'Simpanan Pokok Lunas!');
+      } else {
+        showAlert('Gagal', res.message || 'Saldo tidak cukup');
+      }
+    });
   };
 
   const handleCheckout = async () => {
-    // 1. Validasi awal di Frontend
-    if (cart.length === 0) return showAlert('Kosong', 'Keranjang belanja Anda masih kosong.');
-    if (!address || address.trim() === '') return showAlert('Alamat', 'Silakan isi alamat pengiriman.');
+    if (cart.length === 0) return showAlert('Kosong', 'Keranjang masih kosong.');
+    if (!address.trim()) return showAlert('Alamat', 'Silakan isi alamat pengiriman.');
 
     try {
-      // 2. Kirim data ke API
       const res = await createOrder({ 
         userId: user._id || user.id, 
         cartItems: cart, 
@@ -256,403 +162,265 @@ export default function MainScreen() {
         address: address 
       });
 
-      // 3. Jika Server mengirim success: true
       if (res.success) {
-        showAlert('Sukses', 'Pesanan berhasil dibuat! Saldo Anda telah dipotong.');
-        
-        // Update state user dengan data terbaru dari server (saldo baru)
+        showAlert('Sukses', 'Pesanan berhasil dibuat!');
         setUser(res.user);
-        setUserData(res.user);
-        
-        // Bersihkan keranjang
         clearCart();
         setAddress('');
-        
-        // Refresh riwayat pesanan
         fetchOrders();
-      } else {
-        // 4. Jika Server kirim success: false (Misal: Saldo kurang)
-        showAlert('Gagal', res.message || 'Terjadi kesalahan saat membuat pesanan.');
       }
     } catch (error) {
-      // 5. MENANGKAP ERROR 400/500 (Ini yang bikin log kamu merah tadi)
-      console.error("Detail Error Checkout:", error);
-
-      // Ambil pesan error dari server jika ada (misal: "Saldo tidak cukup")
-      const serverMessage = error.response?.data?.message;
-      
-      if (error.response?.status === 400) {
-        showAlert('Saldo Kurang', serverMessage || 'Saldo Anda tidak mencukupi untuk pesanan ini.');
-      } else {
-        showAlert('Error', 'Gagal terhubung ke server. Silakan coba lagi nanti.');
-      }
+      const msg = error.response?.data?.message || 'Gagal terhubung ke server.';
+      showAlert('Gagal', msg);
     }
-  };
-
-  const refreshUserData = async () => {
-      const targetId = user?._id || user?.id; // Ambil ID dari state user
-      if (!targetId) return;
-
-      const response = await axios.get(`https://koperasi-api.vercel.app/users/${targetId}`);
-      if (response.data) {
-        setUserData(response.data);
-      }
-  };
-
-  const handleLogout = () => {
-    setShowLogoutModal(true);
   };
 
   const confirmLogout = () => {
     setUser(null);
-    try {
-      localStorage.removeItem('koperasi_user'); // Bersihkan storage agar tidak auto-login lagi
-    } catch (e) {}
-    
-    // Gunakan '/' untuk kembali ke halaman index utama di root folder app
-    router.replace('/'); 
-    setShowLogoutModal(false);
+    if (typeof window !== 'undefined') localStorage.removeItem('koperasi_user');
+    router.replace('/');
   };
 
-  const renderContent = () => {
-    if (activeTab === 'shop') {
-      return (
-        <View style={{padding: 15}}>
-          <Text style={styles.headerTitle}>Toko Koperasi</Text>
-          <FlatList
-            data={products}
-            keyExtractor={(item) => (item._id || item.id || Math.random()).toString()}
-            numColumns={2}
-            renderItem={({ item }) => (
-              <View style={styles.card}>
-                <Image source={{ uri: item.image }} style={styles.img} />
-                <Text style={styles.prodName}>{item.name}</Text>
-                <Text style={styles.price}>Rp {item.price}</Text>
-                <TouchableOpacity style={styles.btnAdd} onPress={() => addToCart(item)}>
-                  <Text style={styles.txtBtn}>+ Keranjang</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          />
-        </View>
-      );
-    } else if (activeTab === 'cart') {
-      return (
-        // --- TAB KERANJANG + HISTORY (POIN 4) ---
-        <View style={{padding: 15, paddingBottom: 80, flex:1}}>
-          <Text style={styles.headerTitle}>Keranjang & Riwayat</Text>
-          
-          {/* 1. INPUT KERANJANG (ISI ALAMAT) */}
-          <View style={{paddingBottom: 20, borderBottomWidth: 1, borderBottomColor: '#eee', marginBottom: 20}}>
-            {cart.map((item, index) => (
-              <View key={index} style={styles.cartItem}>
-                <View style={{flex:1}}>
-                  <Text style={{fontWeight:'bold'}}>{item.name}</Text>
-                  <Text>Rp {item.price}</Text>
-                </View>
-                <TouchableOpacity style={{padding: 5}} onPress={() => removeFromCart(index)}>
-                  <Text style={{color:'red', fontWeight:'bold'}}>Hapus</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-            <Text style={styles.total}>Total: Rp {cartTotal}</Text>
-            <TextInput placeholder="Alamat Pengiriman" style={styles.input} value={address} onChangeText={setAddress} />
-            <Button title="Checkout (Pesan Sekarang)" onPress={handleCheckout} color="#D32F2F" />
+  // 5. Render Components
+  const renderShop = () => (
+    <View style={styles.contentPadding}>
+      <Text style={styles.headerTitle}>Toko Koperasi</Text>
+      <FlatList
+        data={products}
+        keyExtractor={(item) => (item._id || item.id).toString()}
+        numColumns={2}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <Image source={{ uri: item.image }} style={styles.img} />
+            <Text style={styles.prodName}>{item.name}</Text>
+            <Text style={styles.price}>Rp {item.price}</Text>
+            <TouchableOpacity style={styles.btnAdd} onPress={() => addToCart(item)}>
+              <Text style={styles.txtBtn}>+ Keranjang</Text>
+            </TouchableOpacity>
           </View>
+        )}
+      />
+    </View>
+  );
 
-          {/* 2. HISTORY STATUS PESANAN */}
-          <Text style={{fontWeight:'bold', marginBottom: 10, color:'#333'}}>Lacak Status Pesanan</Text>
-          {orders.length === 0 ? (
-             <Text style={{textAlign:'center', color:'#999', marginTop: 10}}>Belum ada pesanan.</Text>
-          ) : (
-            <View>
-              {orders.map((order) => (
-                <View key={order._id || order.id} style={styles.orderCard}>
-                  <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom: 5}}>
-                    <Text style={{fontWeight:'bold', color:'#333'}}>ID: {order._id || order.id}</Text>
-                    <Text style={[styles.statusText, order.status === 'Sedang Diproses' && styles.statusProses, order.status === 'Dikirim' && styles.statusDikirim, order.status === 'Selesai' && styles.statusSelesai]}>
-                      {order.status}
-                    </Text>
-                  </View>
-                  <Text style={{fontSize:12, color:'#666', marginBottom: 5}}>Total: Rp {order.total}</Text>
-                  <Text style={{fontSize:12, color:'#666', marginBottom: 5}}>Alamat: {order.address}</Text>
-                  <Text style={{fontSize:10, color:'#999'}}>Tanggal: {new Date(order.date).toLocaleString()}</Text>
-                </View>
-              ))}
+  const renderCart = () => (
+    <View style={styles.contentPadding}>
+      <Text style={styles.headerTitle}>Keranjang & Riwayat</Text>
+      
+      {/* Bagian Checkout */}
+      <View style={styles.checkoutSection}>
+        {cart.map((item, index) => (
+          <View key={index} style={styles.cartItem}>
+            <Text style={{flex:1}}>{item.name}</Text>
+            <Text style={{marginRight: 10}}>Rp {item.price}</Text>
+            <TouchableOpacity onPress={() => removeFromCart(index)}>
+              <Ionicons name="trash-outline" size={18} color="red" />
+            </TouchableOpacity>
+          </View>
+        ))}
+        <Text style={styles.total}>Total: Rp {cartTotal}</Text>
+        <TextInput 
+          placeholder="Alamat Pengiriman Lengkap" 
+          style={styles.input} 
+          value={address} 
+          onChangeText={setAddress} 
+        />
+        <Button title="Checkout Sekarang" onPress={handleCheckout} color="#D32F2F" />
+      </View>
+
+      {/* Bagian History */}
+      <Text style={styles.subTitle}>Lacak Pesanan</Text>
+      {orders.length === 0 ? (
+        <Text style={styles.emptyText}>Belum ada riwayat pesanan.</Text>
+      ) : (
+        orders.map((order) => (
+          <View key={order._id || order.id} style={styles.orderCard}>
+            <View style={styles.orderHeader}>
+              <Text style={styles.orderId}>ID: {(order._id || order.id).slice(-6)}</Text>
+              <Text style={[styles.statusBadge, styles[`status${order.status.replace(/\s/g, '')}`]]}>
+                {order.status}
+              </Text>
             </View>
+            <Text style={styles.orderDetail}>Total: Rp {order.total}</Text>
+            <Text style={styles.orderDate}>{new Date(order.date).toLocaleString()}</Text>
+          </View>
+        ))
+      )}
+    </View>
+  );
+
+  const renderSavings = () => (
+    <View style={styles.contentPadding}>
+      <Text style={styles.headerTitle}>Simpanan & Saldo</Text>
+      
+      <View style={styles.balanceCard}>
+        <Text style={styles.lblSaldo}>Saldo Aktif:</Text>
+        <Text style={styles.valSaldo}>Rp {user?.balance || 0}</Text>
+      </View>
+
+      <TouchableOpacity style={styles.topUpBtn} onPress={() => setIsTopUpVisible(true)}>
+        <Text style={styles.txtWhite}>+ Top Up Saldo</Text>
+      </TouchableOpacity>
+
+      <View style={styles.row}>
+        <View style={[styles.statusCard, { borderColor: user?.pokokPaid ? '#4CAF50' : '#FF9800' }]}>
+          <Text style={styles.cardLabel}>Pokok</Text>
+          <Text style={styles.cardValue}>{user?.pokokPaid ? '✅ Lunas' : '⏳ Belum'}</Text>
+          {!user?.pokokPaid && (
+            <TouchableOpacity style={styles.smallBtn} onPress={handlePokok}>
+              <Text style={styles.txtWhiteSmall}>Bayar</Text>
+            </TouchableOpacity>
           )}
         </View>
-      );
-    } else if (activeTab === 'savings') {
-      return (
-        <View style={{padding: 15, paddingBottom: 80, flex:1}}>
-          <Text style={styles.headerTitle}>Simpanan & Saldo</Text>
-          
-          {/* 1. CARD NOMINAL SALDO */}
-          <View style={styles.balanceCard}>
-            <Text style={styles.lblSaldo}>Saldo Aktif:</Text>
-            <Text style={styles.valSaldo}>Rp {userData ? userData.balance : (user ? user.balance : 0)}</Text>
-          </View>
 
-          {/* 2. TOMBOL TOP UP */}
-          <TouchableOpacity style={styles.actionBtn} onPress={handleTopUp}>
-             <Text style={styles.txtAction}>+ Top Up Saldo</Text>
+        <View style={[styles.statusCard, { borderColor: '#D32F2F' }]}>
+          <Text style={styles.cardLabel}>Wajib</Text>
+          <Text style={styles.cardValue}>{user?.wajibMonths || 0} Bulan</Text>
+          <TouchableOpacity style={styles.smallBtn} onPress={handleWajib}>
+            <Text style={styles.txtWhiteSmall}>Bayar Iuran</Text>
           </TouchableOpacity>
-
-          {/* 3. CARD STATUS POKOK & WAJIB */}
-          <View style={styles.statusHeader}>
-            <View style={[styles.statusCard, {borderColor: (userData ? userData.pokokPaid : user?.pokokPaid) ? '#4CAF50' : '#ff9800'}]}>
-              <Text style={styles.statusTitle}>Simpanan Pokok</Text>
-              <Text style={styles.statusValue}>{(userData ? userData.pokokPaid : user?.pokokPaid) ? '✅ Lunas' : '⏳ Belum Lunas'}</Text>
-              <TouchableOpacity 
-                disabled={(userData ? userData.pokokPaid : user?.pokokPaid)} 
-                style={[styles.btnPayInline, (userData ? userData.pokokPaid : user?.pokokPaid) && {opacity:0.5}]} 
-                onPress={handlePokok}
-              >
-                <Text style={styles.txtInline}>Bayar</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={[styles.statusCard, {borderColor: '#D32F2F'}]}>
-              <Text style={styles.statusTitle}>Simpanan Wajib</Text>
-              <Text style={styles.statusValue}>{(userData ? userData.wajibMonths : user?.wajibMonths || 0)} Bulan Lunas</Text>
-              <TouchableOpacity 
-                style={styles.btnPayInline} 
-                onPress={handleWajib}
-              >
-                <Text style={styles.txtInline}>Bayar Bulan Ini</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
-      );
-    }
-    return null;
-  };
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#D32F2F" />
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
       
-      <View style={styles.profileHeader}>
-        <View style={styles.profileLeft}>
-          <Ionicons name="person-circle-outline" size={40} color="#D32F2F" />
-          <View style={styles.profileInfo}>
-            <Text style={styles.greeting}>Halo,</Text>
-            <Text style={styles.userName}>{user?.name || 'Member'}</Text>
+      {/* Header Profile */}
+      <View style={styles.topProfile}>
+        <View style={styles.rowAlignCenter}>
+          <Ionicons name="person-circle" size={45} color="#D32F2F" />
+          <View style={{marginLeft: 10}}>
+            <Text style={styles.greet}>Selamat datang,</Text>
+            <Text style={styles.name}>{user?.name || 'Member'}</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="#555" />
+        <TouchableOpacity onPress={() => setShowLogoutModal(true)}>
+          <Ionicons name="log-out-outline" size={26} color="#555" />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={{flex:1}}>
-        {renderContent()}
+        {activeTab === 'shop' && renderShop()}
+        {activeTab === 'cart' && renderCart()}
+        {activeTab === 'savings' && renderSavings()}
       </ScrollView>
-      
+
+      {/* Bottom Tab Bar */}
       <View style={styles.tabBar}>
-        <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('shop')}>
-          <Ionicons name="cart-outline" size={20} color={activeTab==='shop'?'#D32F2F':'#999'} />
-          <Text style={[styles.tabText, activeTab==='shop'&&styles.activeText]}>Belanja</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('savings')}>
-          <Ionicons name="wallet-outline" size={20} color={activeTab==='savings'?'#D32F2F':'#999'} />
-          <Text style={[styles.tabText, activeTab==='savings'&&styles.activeText]}>Simpanan</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem} onPress={() => setActiveTab('cart')}>
-          <Ionicons name="basket-outline" size={20} color={activeTab==='cart'?'#D32F2F':'#999'} />
-          <Text style={[styles.tabText, activeTab==='cart'&&styles.activeText]}>Keranjang ({cart.length})</Text>
-        </TouchableOpacity>
+        <TabItem icon="cart" label="Belanja" active={activeTab === 'shop'} onPress={() => setActiveTab('shop')} />
+        <TabItem icon="wallet" label="Simpanan" active={activeTab === 'savings'} onPress={() => setActiveTab('savings')} />
+        <TabItem icon="basket" label={`Keranjang (${cart.length})`} active={activeTab === 'cart'} onPress={() => setActiveTab('cart')} />
       </View>
 
-      {/* MODAL LOGOUT */}
-      {showLogoutModal && (
-        <View style={styles.modalContainer}>
+      {/* Modals */}
+      <CustomAlert visible={showCustomAlert} data={alertData} onConfirm={handleConfirmAlert} onCancel={() => setShowCustomAlert(false)} />
+      
+      <Modal visible={showLogoutModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Keluar Akun?</Text>
-            <Text style={styles.modalText}>Apakah Anda yakin ingin keluar?</Text>
-            <View style={styles.modalActions}>
-              <Button title="Batal" onPress={() => setShowLogoutModal(false)} color="#888"/>
-              <Button title="Ya" onPress={confirmLogout} color="#D32F2F"/>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* --- MODAL CUSTOM ALERT --- */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={showCustomAlert}
-        onRequestClose={() => setShowCustomAlert(false)}
-      >
-        <View style={styles.alertContainer}>
-          <View style={styles.alertBox}>
-            <Text style={styles.alertTitle}>{alertData.title}</Text>
-            <Text style={styles.alertMessage}>{alertData.message}</Text>
-            
-            <View style={styles.alertActions}>
-              {alertData.showCancel && (
-                <Button title="Batal" onPress={() => setShowCustomAlert(false)} color="#888" />
-              )}
-              <Button 
-                title={alertData.showCancel ? "Ya, Lanjut" : "OK"} 
-                onPress={handleConfirmAlert} 
-                color="#D32F2F" 
-              />
+            <View style={styles.row}>
+              <Button title="Batal" onPress={() => setShowLogoutModal(false)} color="#888" />
+              <Button title="Ya, Keluar" onPress={confirmLogout} color="#D32F2F" />
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* --- MODAL TOP UP --- */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showTopUpModal}
-        onRequestClose={() => setShowTopUpModal(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.topUpModalBox}>
-            <Text style={styles.modalTitle}>Isi Nominal Top Up</Text>
-            
-            <TextInput
-              style={styles.topUpInput}
-              placeholder="Masukkan jumlah (Contoh: 50000)"
-              keyboardType="numeric"
-              value={topUpAmount}
-              onChangeText={setTopUpAmount}
-            />
-
-            <Text style={styles.chipLabel}>Pilihan Cepat:</Text>
-            <View style={styles.chipContainer}>
-              {[50000, 100000, 200000, 300000, 500000, 1000000].map((val) => (
-                <TouchableOpacity 
-                  key={val} 
-                  style={[styles.chip, parseInt(topUpAmount) === val && styles.chipActive]} 
-                  onPress={() => selectAmount(val)}
-                >
-                  <Text style={[styles.chipText, parseInt(topUpAmount) === val && styles.chipTextActive]}>
-                    {val >= 1000 ? (val/1000) + 'rb' : val}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={{flexDirection:'row', justifyContent:'space-between', marginTop:20}}>
-              <Button title="Batal" onPress={() => {setShowTopUpModal(false); setTopUpAmount('')}} color="#888" />
-              <Button title="Lanjut" onPress={confirmTopUpRequest} color="#D32F2F" />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* --- MODAL INSTRUKSI --- */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={showInstructionModal}
-        onRequestClose={() => setShowInstructionModal(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Permintaan Terkirim</Text>
-            <Text style={styles.modalText}>Silakan transfer uang sesuai nominal ke rekening Admin:</Text>
-            <View style={styles.bankInfo}>
-              <Text style={{fontWeight:'bold'}}>Bank Seabank: 901704164483</Text>
-              <Text style={{fontWeight:'bold'}}>a.n SYAHREZA ABROR ALVARIZQI</Text>
-              <Text style={{fontWeight:'bold'}}>Bukti Transfer Konfirmasi ke nomor Admin 0899-8094-777</Text>
-            </View>
-            <View style={{marginTop:20}}>
-              <Button title="Oke, Siap" onPress={() => setShowInstructionModal(false)} color="#4CAF50" />
-            </View>
-          </View>
-        </View>
+      <Modal visible={isTopUpVisible} animationType="slide">
+        <SafeAreaView style={{flex:1}}>
+          <TouchableOpacity style={styles.closeModal} onPress={() => setIsTopUpVisible(false)}>
+            <Ionicons name="close" size={30} color="#D32F2F" />
+          </TouchableOpacity>
+          <TopUpScreen user={user} onTopUpSuccess={() => { setIsTopUpVisible(false); }} />
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
 }
 
+// Sub-komponen Tab
+const TabItem = ({ icon, label, active, onPress }) => (
+  <TouchableOpacity style={styles.tabItem} onPress={onPress}>
+    <Ionicons name={`${icon}${active ? '' : '-outline'}`} size={22} color={active ? '#D32F2F' : '#999'} />
+    <Text style={[styles.tabLabel, active && {color:'#D32F2F'}]}>{label}</Text>
+  </TouchableOpacity>
+);
+
+// Sub-komponen Alert
+const CustomAlert = ({ visible, data, onConfirm, onCancel }) => (
+  <Modal visible={visible} transparent animationType="fade">
+    <View style={styles.modalOverlay}>
+      <View style={styles.alertBox}>
+        <Text style={styles.alertTitle}>{data.title}</Text>
+        <Text style={styles.alertMsg}>{data.message}</Text>
+        <View style={styles.row}>
+          {data.showCancel && <Button title="Batal" onPress={onCancel} color="#888" />}
+          <Button title={data.showCancel ? "Lanjut" : "OK"} onPress={onConfirm} color="#D32F2F" />
+        </View>
+      </View>
+    </View>
+  </Modal>
+);
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  profileHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee', paddingTop: 20 },
-  profileLeft: { flexDirection: 'row', alignItems: 'center' },
-  profileInfo: { marginLeft: 10 },
-  greeting: { color: '#888', fontSize: 12 },
-  userName: { color: '#333', fontSize: 18, fontWeight: 'bold' },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', margin: 15, marginTop: 10, color: '#333' },
-  card: { flex: 1, backgroundColor: 'white', padding: 10, margin: 5, borderRadius: 8, alignItems: 'center' },
-  img: { width: 80, height: 80, marginBottom: 5, borderRadius: 4 },
-  prodName: { fontWeight: 'bold', fontSize: 12, textAlign: 'center' },
-  price: { color: '#D32F2F', fontWeight: 'bold', marginBottom: 5 },
-  btnAdd: { backgroundColor: '#D32F2F', padding: 5, borderRadius: 4 },
-  txtBtn: { color: 'white', fontSize: 10 },
-  cartItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: 'white', padding: 10, marginHorizontal: 15, marginBottom: 5, borderRadius: 5 },
-  total: { fontSize: 18, fontWeight: 'bold', marginVertical: 10, textAlign: 'right', marginRight: 15 },
-  input: { backgroundColor: 'white', padding: 10, borderRadius: 5, marginHorizontal: 15, marginBottom: 10 },
-  tabBar: { height: 60, backgroundColor: 'white', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', borderTopWidth: 1, borderColor: '#eee' },
-  tabItem: { flex: 1, alignItems: 'center' },
-  tabText: { color: '#999', fontWeight: 'bold' },
-  activeText: { color: '#D32F2F' },
+  container: { flex: 1, backgroundColor: '#FAFAFA' },
+  topProfile: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: 'white', borderBottomWidth: 1, borderColor: '#EEE' },
+  rowAlignCenter: { flexDirection: 'row', alignItems: 'center' },
+  greet: { fontSize: 12, color: '#888' },
+  name: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  contentPadding: { padding: 15 },
+  headerTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 20, color: '#333' },
+  subTitle: { fontSize: 16, fontWeight: 'bold', marginTop: 20, marginBottom: 10 },
+  
+  // Shop
+  card: { flex: 1, backgroundColor: 'white', padding: 12, margin: 6, borderRadius: 12, alignItems: 'center', elevation: 2 },
+  img: { width: 90, height: 90, borderRadius: 8, marginBottom: 10 },
+  prodName: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  price: { color: '#D32F2F', fontWeight: 'bold', marginVertical: 5 },
+  btnAdd: { backgroundColor: '#D32F2F', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 6 },
+  txtBtn: { color: 'white', fontSize: 11 },
 
-  // Style Simpanan
-  balanceCard: { backgroundColor: '#fff', padding: 20, borderRadius: 15, marginHorizontal: 15, marginBottom: 15, alignItems: 'center', borderWidth: 1, borderColor: '#ddd', elevation: 3 },
-  lblSaldo: { fontSize: 14, color: '#666', marginBottom: 5 },
-  valSaldo: { fontSize: 32, fontWeight: 'bold', color: '#2E7D32' },
+  // Cart & Orders
+  checkoutSection: { backgroundColor: 'white', padding: 15, borderRadius: 12, elevation: 1 },
+  cartItem: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 0.5, borderColor: '#EEE' },
+  total: { fontSize: 18, fontWeight: 'bold', textAlign: 'right', marginVertical: 15 },
+  input: { borderAround: 1, borderColor: '#DDD', borderWidth: 1, borderRadius: 8, padding: 10, marginBottom: 15 },
+  orderCard: { backgroundColor: 'white', padding: 15, borderRadius: 10, marginBottom: 10, elevation: 1 },
+  orderHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  orderId: { fontWeight: 'bold', color: '#555' },
+  statusBadge: { fontSize: 10, fontWeight: 'bold', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, overflow: 'hidden' },
+  statusSedangDiproses: { backgroundColor: '#FFF3E0', color: '#EF6C00' },
+  statusDikirim: { backgroundColor: '#E3F2FD', color: '#1565C0' },
+  statusSelesai: { backgroundColor: '#E8F5E9', color: '#2E7D32' },
+  emptyText: { textAlign: 'center', color: '#999', marginTop: 20 },
 
-  actionBtn: { backgroundColor: '#2196F3', padding: 15, borderRadius: 15, alignItems: 'center', marginHorizontal: 15, marginBottom: 20, elevation: 2 },
-  txtAction: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+  // Savings
+  balanceCard: { backgroundColor: '#2E7D32', padding: 25, borderRadius: 20, alignItems: 'center', marginBottom: 15 },
+  lblSaldo: { color: 'rgba(255,255,255,0.8)', fontSize: 14 },
+  valSaldo: { color: 'white', fontSize: 32, fontWeight: 'bold' },
+  topUpBtn: { backgroundColor: '#1976D2', padding: 15, borderRadius: 12, alignItems: 'center', marginBottom: 20 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
+  statusCard: { flex: 1, backgroundColor: 'white', padding: 15, borderRadius: 15, borderWidth: 2, alignItems: 'center' },
+  cardLabel: { fontSize: 12, color: '#666' },
+  cardValue: { fontSize: 16, fontWeight: 'bold', marginVertical: 5 },
+  smallBtn: { backgroundColor: '#333', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8 },
+  txtWhiteSmall: { color: 'white', fontSize: 11, fontWeight: 'bold' },
+  txtWhite: { color: 'white', fontWeight: 'bold' },
 
-  statusHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  statusCard: { flex: 1, padding: 20, borderRadius: 15, borderWidth: 1, backgroundColor: '#fff', alignItems: 'center', elevation: 2 },
-  statusTitle: { fontSize: 14, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-  statusValue: { fontSize: 18, fontWeight: 'bold', color: '#555', marginBottom: 10 },
-  btnPayInline: { backgroundColor: '#333', padding: 8, borderRadius: 8, paddingHorizontal: 20 },
-  txtInline: { color: 'white', fontSize: 12, fontWeight: 'bold' },
+  // Tabs
+  tabBar: { flexDirection: 'row', height: 70, backgroundColor: 'white', borderTopWidth: 1, borderColor: '#EEE', paddingBottom: 10 },
+  tabItem: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  tabLabel: { fontSize: 10, color: '#999', marginTop: 4 },
 
-  // Style Tracking Pesanan (BARU)
-  orderCard: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#eee',
-    elevation: 2
-  },
-  statusText: {
-    fontWeight: 'bold',
-    fontSize: 12,
-    padding: 4,
-    borderRadius: 4,
-    color: '#fff'
-  },
-  statusProses: { backgroundColor: '#FFF3E0', color: '#FF9800' }, // Kuning
-  statusDikirim: { backgroundColor: '#E3F2FD', color: '#2196F3' }, // Biru
-  statusSelesai: { backgroundColor: '#E8F5E9', color: '#4CAF50' }, // Hijau
-
-  // Style Modal General
-  modalContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 },
-  modalBox: { width: '80%', backgroundColor: 'white', padding: 20, borderRadius: 10, alignItems: 'center' },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
-  modalText: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 10 },
-  modalActions: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' },
-  bankInfo: { backgroundColor: '#f0f0f0', padding: 10, borderRadius: 8, width: '100%', marginVertical: 10 },
-
-  topUpModalBox: { width: '90%', backgroundColor: 'white', padding: 20, borderRadius: 15, alignItems: 'center' },
-  topUpInput: { width: '100%', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 16, textAlign: 'center', backgroundColor: '#f9f9f9', marginBottom: 20 },
-  chipLabel: { width: '100%', marginBottom: 10, fontWeight: 'bold', color: '#666' },
-  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', width: '100%', marginBottom: 10 },
-  chip: { width: '48%', padding: 10, borderRadius: 20, borderWidth: 1, borderColor: '#ddd', backgroundColor: '#fff', alignItems: 'center', marginBottom: 8 },
-  chipActive: { backgroundColor: '#D32F2F', borderColor: '#D32F2F' },
-  chipText: { color: '#333', fontSize: 12 },
-  chipTextActive: { color: 'white', fontWeight: 'bold' },
-
-  // Style Alert Custom
-  alertContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', zIndex: 9999 },
-  alertBox: { width: '85%', backgroundColor: 'white', padding: 25, borderRadius: 15, alignItems: 'center' },
-  alertTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-  alertMessage: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 20 },
-  alertActions: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' }
+  // Modals & Alerts
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalBox: { width: '80%', backgroundColor: 'white', padding: 25, borderRadius: 15, alignItems: 'center' },
+  alertBox: { width: '85%', backgroundColor: 'white', padding: 25, borderRadius: 20 },
+  alertTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  alertMsg: { fontSize: 14, color: '#555', marginBottom: 20, textAlign: 'center' },
+  closeModal: { padding: 20, alignSelf: 'flex-end' }
 });

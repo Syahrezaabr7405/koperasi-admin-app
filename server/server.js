@@ -15,10 +15,11 @@ app.use(cors({
 app.use(express.json());
 
 // 2. KONFIGURASI MIDTRANS (Ganti Key dengan milikmu di Dashboard Midtrans)
+// JANGAN masukkan kodenya langsung di sini
 let snap = new midtransClient.Snap({
-    isProduction: false, // Sandbox mode
-    serverKey: process.env.MIDTRANS_SERVER_KEY || 'Mid-server-50tRM7pr8I7bgaqfNryc6UqR',
-    clientKey: process.env.MIDTRANS_CLIENT_KEY || 'Mid-client-R2O3nIJD0IqcM1Fv'
+    isProduction: false,
+    serverKey: process.env.MIDTRANS_SERVER_KEY, // Ambil dari pengaturan Vercel
+    clientKey: process.env.MIDTRANS_CLIENT_KEY  // Ambil dari pengaturan Vercel
 });
 
 // 3. LOGIKA KONEKSI MONGODB
