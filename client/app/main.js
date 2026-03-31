@@ -17,7 +17,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 
 // Imports internal
-import TopUpScreen from './src/screens/TopUpScreen'; 
+import TopUpScreen from '../src/screens/TopUpScreen'; 
 import { 
   getProducts, 
   updateBalance, 
