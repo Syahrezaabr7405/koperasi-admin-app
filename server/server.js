@@ -147,14 +147,36 @@ app.put('/topup/approve/:id', async (req, res) => {
 // --- ORDERS ---
 app.post('/orders', async (req, res) => {
     const { userId, cartItems, total, address } = req.body;
-    const user = await User.findById(userId);
-    if (user.balance < total) return res.status(400).json({ success: false, message: 'Saldo kurang' });
     
-    user.balance -= total;
-    const newOrder = new Order({ userId, userName: user.name, items: cartItems, total, address, date: new Date().toISOString() });
-    await newOrder.save();
-    await user.save();
-    res.json({ success: true, order: newOrder });
+    try {
+        // Ambil data user TERBARU dari database, jangan percaya data dari body
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
+
+        // Cek saldo asli di database
+        if (user.balance < total) {
+            return res.status(400).json({ success: false, message: 'Saldo kurang' });
+        }
+
+        // Potong saldo
+        user.balance -= Number(total);
+        
+        const newOrder = new Order({ 
+            userId, 
+            userName: user.name, 
+            items: cartItems, 
+            total, 
+            address, 
+            date: new Date().toISOString() 
+        });
+
+        await newOrder.save();
+        await user.save(); // Simpan saldo baru
+
+        res.json({ success: true, order: newOrder, user: user }); // Kirim balik data user terbaru
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
 });
 
 app.get('/orders', async (req, res) => res.json(await Order.find()));

@@ -229,6 +229,13 @@ export default function MainScreen() {
     }
   };
 
+  const refreshUserData = async () => {
+    const response = await axios.get(`https://koperasi-api.vercel.app/users/${userId}`);
+    if (response.data) {
+      setUserData(response.data); // Ini akan mengupdate tampilan saldo jadi 40.000
+    }
+  };
+
   const handleLogout = () => {
     setShowLogoutModal(true);
   };
