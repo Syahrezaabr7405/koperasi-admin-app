@@ -23,6 +23,11 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  
+  // --- STATE UNTUK CUSTOM ALERT ---
+  const [showAlert, setShowAlert] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({ title: '', message: '', type: 'success' });
+
   const router = useRouter();
 
   const getPasswordStrength = (pwd) => {
@@ -36,15 +41,21 @@ export default function RegisterScreen() {
   };
   const strength = getPasswordStrength(formData.password);
 
+  // Fungsi pembantu untuk memunculkan alert
+  const triggerAlert = (title, message, type = 'success') => {
+    setAlertConfig({ title, message, type });
+    setShowAlert(true);
+  };
+
   const handleRegister = async () => {
     if(!formData.name || !formData.username || !formData.password || !formData.nik || !formData.phone) {
-      return console.log('Mohon lengkapi semua');
+      return triggerAlert('Data Belum Lengkap', 'Mohon lengkapi semua kolom formulir.', 'error');
     }
     if (formData.password !== confirmPassword) {
-      return console.log('Konfirmasi Password tidak sama');
+      return triggerAlert('Password Tidak Cocok', 'Konfirmasi password harus sama dengan password.', 'error');
     }
     if (strength < 3) {
-      return console.log('Password lemah');
+      return triggerAlert('Password Lemah', 'Gunakan kombinasi angka dan huruf yang lebih kuat.', 'error');
     }
     setShowRegisterModal(true);
   };
@@ -52,28 +63,34 @@ export default function RegisterScreen() {
   const processRegister = async () => {
     setShowRegisterModal(false);
     const result = await registerUser(formData);
+    
     if (result.success) {
-      console.log('Akun berhasil terdaftar');
-      router.back();
+      // Alert sukses sesuai permintaanmu
+      triggerAlert(
+        'Pendaftaran Berhasil', 
+        'Anda sudah mendaftar, silahkan kembali ke halaman login.', 
+        'success'
+      );
     } else {
-      console.log('Gagal:', result.message);
+      // Menangani jika akun/NIK sudah ada
+      const errorMsg = result.message || 'Gagal mendaftarkan akun.';
+      triggerAlert('Pendaftaran Gagal', errorMsg, 'error');
+    }
+  };
+
+  const handleCloseAlert = () => {
+    setShowAlert(false);
+    // Jika sukses, arahkan balik ke login setelah user menekan OK
+    if (alertConfig.type === 'success') {
+      router.back();
     }
   };
 
   return (
     <View style={styles.container}>
-      {/* Background Image */}
-      <Image 
-        source={Background} 
-        style={styles.backgroundImage} 
-        resizeMode="cover" 
-      />
+      <Image source={Background} style={styles.backgroundImage} resizeMode="cover" />
 
-      {/* Scrollable Card */}
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
           <View style={styles.logoContainer}>
             <Image source={Logo} style={styles.logo} resizeMode="contain" />
@@ -143,10 +160,7 @@ export default function RegisterScreen() {
             </View>
             
             {formData.password.length > 0 && strength < 3 && (
-              <Text style={styles.warningText}>⚠ Password lemah! Gunakan minimal 8 karakter, huruf kapital, dan angka.</Text>
-            )}
-            {formData.password.length > 0 && strength >= 3 && (
-              <Text style={styles.successText}>✓ Password Kuat</Text>
+              <Text style={styles.warningText}>⚠ Password lemah! Gunakan minimal 8 karakter, kapital, dan angka.</Text>
             )}
 
             <View style={styles.inputWrapper}>
@@ -175,21 +189,42 @@ export default function RegisterScreen() {
         </View>
       </ScrollView>
 
-      {/* Modal Daftar */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={showRegisterModal}
-        onRequestClose={() => setShowRegisterModal(false)}
-      >
+      {/* --- MODAL KONFIRMASI (DAFTAR) --- */}
+      <Modal animationType="fade" transparent={true} visible={showRegisterModal}>
         <View style={styles.modalContainer}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Konfirmasi Pendaftaran</Text>
+            <Ionicons name="help-circle-outline" size={50} color="#D32F2F" />
+            <Text style={styles.modalTitle}>Konfirmasi</Text>
             <Text style={styles.modalText}>Apakah data yang Anda isi sudah benar?</Text>
             <View style={styles.modalButtonContainer}>
-              <Button title="Batal" onPress={() => setShowRegisterModal(false)} color="#888" />
-              <Button title="Ya, Daftar" onPress={processRegister} color="#D32F2F" />
+              <TouchableOpacity style={styles.btnSecondary} onPress={() => setShowRegisterModal(false)}>
+                <Text style={{color: '#888'}}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnPrimary} onPress={processRegister}>
+                <Text style={{color: '#fff', fontWeight: 'bold'}}>Ya, Daftar</Text>
+              </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* --- MODAL CUSTOM ALERT (BERHASIL/GAGAL) --- */}
+      <Modal animationType="slide" transparent={true} visible={showAlert}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalBox}>
+            <Ionicons 
+              name={alertConfig.type === 'success' ? "checkmark-circle" : "alert-circle"} 
+              size={60} 
+              color={alertConfig.type === 'success' ? "#4CAF50" : "#D32F2F"} 
+            />
+            <Text style={[styles.modalTitle, {marginTop: 10}]}>{alertConfig.title}</Text>
+            <Text style={styles.modalText}>{alertConfig.message}</Text>
+            <TouchableOpacity 
+              style={[styles.btnFull, {backgroundColor: alertConfig.type === 'success' ? "#4CAF50" : "#D32F2F"}]} 
+              onPress={handleCloseAlert}
+            >
+              <Text style={{color: '#fff', fontWeight: 'bold'}}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -198,98 +233,40 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#fff' 
-  },
-  
+  container: { flex: 1, backgroundColor: '#fff' },
   backgroundImage: {
-    position: 'absolute',
-    top: 0, 
-    left: 0, 
-    right: 0, 
-    bottom: 0,
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    width: Dimensions.get('window').width, height: Dimensions.get('window').height,
   },
-
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-
+  scrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 40 },
   card: {
-    width: '85%',
-    backgroundColor: 'rgba(255,255,255, 0.95)',
-    borderRadius: 25,
-    padding: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 10,
+    width: '85%', backgroundColor: 'rgba(255,255,255, 0.95)',
+    borderRadius: 25, padding: 30, elevation: 10,
   },
-
   logoContainer: { alignItems: 'center', marginBottom: 10 },
   logo: { width: 100, height: 100 }, 
-  
   titleContainer: { alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#D32F2F', textAlign: 'center', marginBottom: 5 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#D32F2F', marginBottom: 5 },
   subtitle: { fontSize: 14, color: '#777' },
-
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F8F8',
-    borderRadius: 15,
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0'
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F8F8',
+    borderRadius: 15, paddingHorizontal: 15, paddingVertical: 5,
+    marginBottom: 8, borderWidth: 1, borderColor: '#E0E0E0'
   },
   inputIcon: { marginRight: 10 },
-  inputWithIcon: { flex: 1, fontSize: 14, color: '#000', padding: 0 },
+  inputWithIcon: { flex: 1, fontSize: 14, color: '#000' },
   eyeIcon: { marginLeft: 10, padding: 5 },
-  
-  warningText: { 
-    color: '#D32F2F', 
-    fontSize: 11, 
-    marginBottom: 8, 
-    textAlign: 'left', 
-    paddingLeft: 10 
-  },
-  successText: { 
-    color: '#4CAF50', 
-    fontSize: 12, 
-    marginBottom: 8, 
-    fontWeight: 'bold', 
-    textAlign: 'left', 
-    paddingLeft: 10 
-  },
-
-  buttonContainer: { marginTop: 5, borderRadius: 15, overflow: 'hidden' },
-  
+  warningText: { color: '#D32F2F', fontSize: 11, marginBottom: 8, paddingLeft: 10 },
+  buttonContainer: { marginTop: 15, borderRadius: 15, overflow: 'hidden' },
   footerContainer: { alignItems: 'center', marginTop: 15 },
   footerText: { color: '#666', fontSize: 14 },
   footerLink: { color: '#D32F2F', fontSize: 15, fontWeight: 'bold', marginTop: 5 },
-
-  modalContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center', 
-    alignItems: 'center',
-  },
-  modalBox: {
-    width: '80%', 
-    backgroundColor: 'white', 
-    padding: 25, 
-    borderRadius: 20, 
-    alignItems: 'center'
-  },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
-  modalText: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 20 },
-  modalButtonContainer: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' }
+  modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  modalBox: { width: '85%', backgroundColor: 'white', padding: 25, borderRadius: 20, alignItems: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+  modalText: { fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 25 },
+  modalButtonContainer: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' },
+  btnPrimary: { backgroundColor: '#D32F2F', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 12 },
+  btnSecondary: { backgroundColor: '#F0F0F0', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 12 },
+  btnFull: { width: '100%', paddingVertical: 12, borderRadius: 12, alignItems: 'center' }
 });
