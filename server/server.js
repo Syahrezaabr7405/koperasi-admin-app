@@ -16,32 +16,19 @@ app.use(express.json());
 // 2. LOGIKA KONEKSI MONGODB (SERVERLESS OPTIMIZED)
 const MONGO_URI = process.env.MONGODB_URI || "mongodb+srv://rezaadmin:I4p3KqVEmEv5H96w@cluster0.oa0pdog.mongodb.net/koperasi_db?retryWrites=true&w=majority";
 
-// Variabel untuk menyimpan status koneksi
 let cachedDb = null;
-
 async function connectToDatabase() {
-  if (cachedDb) {
-    return cachedDb;
-  }
-
-  // Jika belum ada koneksi, buat koneksi baru
-  console.log("🔄 Menghubungkan ke MongoDB...");
-  const db = await mongoose.connect(MONGO_URI, {
-    serverSelectionTimeoutMS: 5000, // Tunggu 5 detik saja sebelum timeout
-  });
-  
+  if (cachedDb) return cachedDb;
+  const db = await mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 5000 });
   cachedDb = db;
-  console.log("✅ Terhubung ke MongoDB Atlas");
   return db;
 }
 
-// Middleware untuk memastikan database terhubung di setiap request
 app.use(async (req, res, next) => {
   try {
     await connectToDatabase();
     next();
   } catch (err) {
-    console.error("❌ Database Connection Error:", err.message);
     res.status(500).json({ error: "Gagal terhubung ke database" });
   }
 });
@@ -64,87 +51,63 @@ const Order = mongoose.model('Order', new mongoose.Schema({
 }));
 
 const TopupRequest = mongoose.model('TopupRequest', new mongoose.Schema({
-    userId: String, amount: Number, status: String, date: String
+    userId: String, amount: Number, status: { type: String, default: 'Menunggu Konfirmasi' }, date: String
 }));
 
 // 4. ROUTES
 
 app.get('/', (req, res) => {
-    res.send('Backend Koperasi API is running and connected to DB!');
+    res.send('Backend Koperasi API is running!');
 });
 
+// --- AUTH ---
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    try {
-        const user = await User.findOne({ username, password });
-        if (user) res.json({ success: true, user });
-        else res.status(401).json({ success: false, message: 'Username atau password salah' });
-    } catch (err) {
-        res.status(500).json({ success: false, message: 'Server error saat login' });
-    }
+    const user = await User.findOne({ username, password });
+    if (user) res.json({ success: true, user });
+    else res.status(401).json({ success: false, message: 'Username/Password salah' });
 });
 
 app.post('/register', async (req, res) => {
     const { name, username, password, nik, phone } = req.body;
+    const existing = await User.findOne({ username });
+    if (existing) return res.status(400).json({ success: false, message: 'Username sudah dipakai' });
+    const newUser = new User({ name, username, password, nik, phone });
+    await newUser.save();
+    res.json({ success: true, user: newUser });
+});
+
+// --- PRODUCTS (ADMIN & USER) ---
+app.get('/products', async (req, res) => res.json(await Product.find()));
+
+app.post('/products', async (req, res) => {
     try {
-        const existing = await User.findOne({ username });
-        if (existing) return res.status(400).json({ success: false, message: 'Username sudah dipakai' });
-
-        const newUser = new User({ name, username, password, nik, phone });
-        await newUser.save();
-        res.json({ success: true, user: newUser });
+        const { name, price, image } = req.body;
+        const newProduct = new Product({ name, price: Number(price), image });
+        await newProduct.save();
+        res.status(201).json({ success: true, data: newProduct });
     } catch (err) {
-        res.status(500).json({ success: false, message: 'Gagal daftar' });
+        res.status(500).json({ success: false, message: 'Gagal simpan produk' });
     }
 });
 
-app.post('/user/update-balance', async (req, res) => {
-    const { userId, amount, type } = req.body;
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User tidak ditemukan' });
-
-    const currentSaldo = parseInt(user.balance || 0);
-    const nominal = parseInt(amount);
-
-    if (type === 'topup') {
-        user.balance = currentSaldo + nominal;
-    } else if (type === 'bayar_pokok') {
-        const biayaPokok = 50000;
-        if (currentSaldo < biayaPokok) return res.status(400).json({ message: 'Saldo kurang' });
-        user.balance = currentSaldo - biayaPokok;
-        user.pokokPaid = true;
-    } else if (type === 'bayar_wajib') {
-        const biayaWajib = 10000;
-        if (currentSaldo < biayaWajib) return res.status(400).json({ message: 'Saldo kurang' });
-        
-        const now = new Date();
-        const lastPaid = user.lastPaidWajib ? new Date(user.lastPaidWajib) : null;
-        if (lastPaid && lastPaid.getMonth() === now.getMonth() && lastPaid.getFullYear() === now.getFullYear()) {
-            return res.status(400).json({ message: 'Simpanan Wajib bulan ini sudah dibayar.' });
-        }
-        user.balance = currentSaldo - biayaWajib;
-        user.wajibMonths += 1;
-        user.lastPaidWajib = now.toISOString();
-    }
-
-    await user.save();
-    res.json({ success: true, user });
+app.delete('/products/:id', async (req, res) => {
+    await Product.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
 });
 
-app.post('/orders', async (req, res) => {
-    const { userId, cartItems, total, address } = req.body;
-    const user = await User.findById(userId);
-    if (user.balance < total) return res.status(400).json({ success: false, message: 'Saldo tidak mencukupi' });
+// --- USERS (ADMIN) ---
+app.get('/users', async (req, res) => {
+    const users = await User.find();
+    res.json(users);
+});
 
-    user.balance -= total;
-    const newOrder = new Order({
-        userId, userName: user.name, items: cartItems, total, address,
-        date: new Date().toISOString()
-    });
-    
-    await newOrder.save();
-    await user.save();
-    res.json({ success: true, order: newOrder, user });
+// --- SALDO & TOPUP ---
+app.post('/topup/request', async (req, res) => {
+    const { userId, amount } = req.body;
+    const request = new TopupRequest({ userId, amount, date: new Date().toISOString() });
+    await request.save();
+    res.json({ success: true });
 });
 
 app.get('/topup/requests', async (req, res) => {
@@ -156,11 +119,42 @@ app.get('/topup/requests', async (req, res) => {
     res.json(fullRequests);
 });
 
-app.get('/products', async (req, res) => res.json(await Product.find()));
+app.put('/topup/approve/:id', async (req, res) => {
+    const request = await TopupRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ message: 'Request tidak ditemukan' });
+    
+    const user = await User.findById(request.userId);
+    user.balance += request.amount;
+    request.status = 'Disetujui';
+    
+    await user.save();
+    await request.save();
+    res.json({ success: true });
+});
+
+// --- ORDERS ---
+app.post('/orders', async (req, res) => {
+    const { userId, cartItems, total, address } = req.body;
+    const user = await User.findById(userId);
+    if (user.balance < total) return res.status(400).json({ success: false, message: 'Saldo kurang' });
+    
+    user.balance -= total;
+    const newOrder = new Order({ userId, userName: user.name, items: cartItems, total, address, date: new Date().toISOString() });
+    await newOrder.save();
+    await user.save();
+    res.json({ success: true, order: newOrder });
+});
+
+app.get('/orders', async (req, res) => res.json(await Order.find()));
+
+app.put('/orders/:id', async (req, res) => {
+    const { status } = req.body;
+    await Order.findByIdAndUpdate(req.params.id, { status });
+    res.json({ success: true });
+});
 
 // EXPORT
 if (process.env.NODE_ENV !== 'production') {
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
-
 module.exports = app;
