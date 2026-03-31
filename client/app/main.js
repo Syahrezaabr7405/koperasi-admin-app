@@ -243,18 +243,49 @@ export default function MainScreen() {
   };
 
   const handleCheckout = async () => {
-    if (cart.length === 0 || !address) return showAlert('Kosong', 'Keranjang atau Alamat belum diisi.');
-    const res = await createOrder({ userId: user._id || user.id, cartItems: cart, total: cartTotal, address });
-    if (res.success) {
-      showAlert('Sukses', 'Pesanan berhasil dibuat. Saldo dipotong.');
-      setUser(res.user);
-      setUserData(res.user);
-      clearCart();
-      setAddress('');
-      // Refresh orders agar pesanan baru muncul di history
-      fetchOrders();
-    } else {
-      showAlert('Gagal', res.message);
+    // 1. Validasi awal di Frontend
+    if (cart.length === 0) return showAlert('Kosong', 'Keranjang belanja Anda masih kosong.');
+    if (!address || address.trim() === '') return showAlert('Alamat', 'Silakan isi alamat pengiriman.');
+
+    try {
+      // 2. Kirim data ke API
+      const res = await createOrder({ 
+        userId: user._id || user.id, 
+        cartItems: cart, 
+        total: cartTotal, 
+        address: address 
+      });
+
+      // 3. Jika Server mengirim success: true
+      if (res.success) {
+        showAlert('Sukses', 'Pesanan berhasil dibuat! Saldo Anda telah dipotong.');
+        
+        // Update state user dengan data terbaru dari server (saldo baru)
+        setUser(res.user);
+        setUserData(res.user);
+        
+        // Bersihkan keranjang
+        clearCart();
+        setAddress('');
+        
+        // Refresh riwayat pesanan
+        fetchOrders();
+      } else {
+        // 4. Jika Server kirim success: false (Misal: Saldo kurang)
+        showAlert('Gagal', res.message || 'Terjadi kesalahan saat membuat pesanan.');
+      }
+    } catch (error) {
+      // 5. MENANGKAP ERROR 400/500 (Ini yang bikin log kamu merah tadi)
+      console.error("Detail Error Checkout:", error);
+
+      // Ambil pesan error dari server jika ada (misal: "Saldo tidak cukup")
+      const serverMessage = error.response?.data?.message;
+      
+      if (error.response?.status === 400) {
+        showAlert('Saldo Kurang', serverMessage || 'Saldo Anda tidak mencukupi untuk pesanan ini.');
+      } else {
+        showAlert('Error', 'Gagal terhubung ke server. Silakan coba lagi nanti.');
+      }
     }
   };
 
