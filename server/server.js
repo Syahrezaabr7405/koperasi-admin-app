@@ -102,31 +102,49 @@ app.get('/users', async (req, res) => {
     res.json(users);
 });
 
-// --- FIX ERROR 404: UPDATE BALANCE MANUAL ---
+// --- FIX ERROR 404: UPDATE BALANCE & SIMPANAN ---
 app.post('/user/update-balance', async (req, res) => {
     try {
         const { userId, amount, type } = req.body;
-        const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ success: false, message: 'User tidak ditemukan' });
+        
+        // Cek apakah userId ada (mencegah error 'undefined' dari log kamu)
+        if (!userId || userId === "undefined") {
+            return res.status(400).json({ success: false, message: 'ID User tidak valid atau undefined' });
+        }
 
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({ success: false, message: 'User tidak ditemukan di database' });
+
+        const nominal = Number(amount);
+
+        // Logika berdasarkan tipe transaksi
         if (type === 'topup') {
-            user.balance = (user.balance || 0) + Number(amount);
-        } else {
-            user.balance = (user.balance || 0) - Number(amount);
+            user.balance = (user.balance || 0) + nominal;
+        } else if (type === 'pokok') {
+            // Bayar simpanan pokok (biasanya sekali di awal)
+            if (user.balance < nominal) return res.status(400).json({ success: false, message: 'Saldo tidak cukup' });
+            user.balance -= nominal;
+            user.pokokPaid = true;
+        } else if (type === 'wajib') {
+            // Bayar simpanan wajib (bulanan)
+            if (user.balance < nominal) return res.status(400).json({ success: false, message: 'Saldo tidak cukup' });
+            user.balance -= nominal;
+            user.wajibMonths = (user.wajibMonths || 0) + 1;
+            user.lastPaidWajib = new Date().toISOString();
         }
 
         await user.save();
-        res.json({ success: true, balance: user.balance });
+        res.json({ success: true, balance: user.balance, user });
     } catch (err) {
+        console.error("Error Update Balance:", err);
         res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// --- FIX ERROR 404: HISTORY TOP UP ---
+// --- TOPUP HISTORY ---
 app.get('/topup/history', async (req, res) => {
     try {
-        // Mengambil semua request yang sudah 'Disetujui'
-        const history = await TopupRequest.find({ status: 'Disetujui' });
+        const history = await TopupRequest.find({ status: 'Disetujui' }).sort({ date: -1 });
         const fullHistory = await Promise.all(history.map(async (h) => {
             const user = await User.findById(h.userId);
             return { 
@@ -231,6 +249,7 @@ app.get('/orders', async (req, res) => res.json(await Order.find()));
 
 app.get('/user/:id', async (req, res) => {
     try {
+        if (req.params.id === "undefined") return res.status(400).json({ message: "ID tidak valid" });
         const user = await User.findById(req.params.id);
         if (user) res.json(user);
         else res.status(404).json({ message: 'User tidak ditemukan' });

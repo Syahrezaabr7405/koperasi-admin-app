@@ -186,7 +186,8 @@ export default function MainScreen() {
     }
 
     showAlert('Konfirmasi', `Bayar Iuran Wajib bulan ini sebesar Rp ${biayaWajib}?`, async () => {
-       const res = await updateBalance(currentUser.id, biayaWajib, 'bayar_wajib');
+       const targetId = currentUser._id || currentUser.id; // Pastikan ambil salah satu yang ada
+       const res = await updateBalance(targetId, biayaWajib, 'bayar_wajib');
        if (res.success) {
          const updatedUser = { ...currentUser, balance: res.user.balance, wajibMonths: res.user.wajibMonths + 1 };
          setUser(updatedUser);
@@ -202,7 +203,7 @@ export default function MainScreen() {
   // --- FUNGSI SIMPANAN POKOK ---
   const handlePokok = async () => {
     if (user.pokokPaid) return showAlert('Lunas', 'Simpanan Pokok sudah lunas!');
-    const res = await updateBalance(user.id, 250000, 'pay_pokok');
+    const res = await updateBalance(user?._id || user?.id, 50000, 'pay_pokok');
     if(res.success) {
       const currentUser = { ...user, balance: res.user.balance, pokokPaid: true };
       setUser(currentUser);
@@ -230,10 +231,13 @@ export default function MainScreen() {
   };
 
   const refreshUserData = async () => {
-    const response = await axios.get(`https://koperasi-api.vercel.app/users/${userId}`);
-    if (response.data) {
-      setUserData(response.data); // Ini akan mengupdate tampilan saldo jadi 40.000
-    }
+      const targetId = user?._id || user?.id; // Ambil ID dari state user
+      if (!targetId) return;
+
+      const response = await axios.get(`https://koperasi-api.vercel.app/users/${targetId}`);
+      if (response.data) {
+        setUserData(response.data);
+      }
   };
 
   const handleLogout = () => {

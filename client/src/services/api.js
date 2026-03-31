@@ -85,15 +85,22 @@ export const getUser = async () => {
 };
 
 export const updateBalance = async (userId, amount, type) => {
-  // Tambahkan log untuk debugging di console
-  console.log("Mengirim Update Balance ke ID:", userId);
-  
-  const response = await axios.post(`${API_URL}/user/update-balance`, { 
-    userId: userId, // Pastikan ini adalah _id dari MongoDB
-    amount: Number(amount), 
-    type 
-  });
-  return response.data;
+  try {
+    // Menambahkan log agar kamu bisa cek di terminal/console jika ada masalah
+    console.log(`Mengirim ${type} sebesar ${amount} ke ID: ${userId}`);
+
+    const response = await axios.post(`${API_URL}/user/update-balance`, {
+      userId: userId, 
+      amount: Number(amount), // Mengambil keunggulan kodemu (memastikan angka)
+      type: type
+    });
+    
+    return response.data; // Mengembalikan sukses (misal: {success: true, user: ...})
+  } catch (error) {
+    // Mengambil keunggulan kode saya (menangkap error agar tidak crash)
+    console.error("Detail Error API:", error.response?.data || error.message);
+    return error.response?.data || { success: false, message: "Koneksi server gagal" };
+  }
 };
 
 // --- ORDERS ---
