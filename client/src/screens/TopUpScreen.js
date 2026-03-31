@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, ActivityIndicator, Platform, Linking } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 const TopUpScreen = ({ user, onTopUpSuccess }) => {
@@ -20,20 +20,30 @@ const TopUpScreen = ({ user, onTopUpSuccess }) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: user._id, // Pastikan ID user dikirim
-                    username: user.name,
+                    userId: user?._id, 
+                    username: user?.name,
                     amount: amount
                 }),
             });
 
             const data = await response.json();
+            
             if (data.success) {
-                setPaymentUrl(data.redirect_url);
-                setShowWebView(true);
+                // LOGIKA DETEKSI PLATFORM
+                if (Platform.OS === 'web') {
+                    // Jika di Web, buka tab baru (menghindari error "WebView not supported")
+                    Linking.openURL(data.redirect_url);
+                    alert("Silahkan selesaikan pembayaran di tab baru yang terbuka.");
+                } else {
+                    // Jika di Android/iOS, gunakan WebView
+                    setPaymentUrl(data.redirect_url);
+                    setShowWebView(true);
+                }
             } else {
                 alert("Gagal membuat transaksi: " + data.message);
             }
         } catch (error) {
+            console.error(error);
             alert("Terjadi kesalahan koneksi ke server");
         } finally {
             setLoading(false);
@@ -41,13 +51,12 @@ const TopUpScreen = ({ user, onTopUpSuccess }) => {
     };
 
     const handleWebViewNavigationStateChange = (newNavState) => {
-        // Jika URL mengandung kata 'finish' atau 'success' (tergantung setting Midtrans)
-        // Kita bisa asumsikan user selesai (tapi saldo tetap diupdate otomatis oleh Webhook Backend)
-        if (newNavState.url.includes('finish') || newNavState.url.includes('error')) {
+        // Cek jika URL mengandung indikasi selesai
+        if (newNavState.url.includes('finish') || newNavState.url.includes('success')) {
             setTimeout(() => {
                 setShowWebView(false);
                 setPaymentUrl(null);
-                if (onTopUpSuccess) onTopUpSuccess(); // Fungsi untuk refresh saldo di halaman utama
+                if (onTopUpSuccess) onTopUpSuccess(); 
             }, 3000);
         }
     };
@@ -72,37 +81,41 @@ const TopUpScreen = ({ user, onTopUpSuccess }) => {
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Bayar via QRIS / E-Wallet</Text>}
             </TouchableOpacity>
 
-            {/* Modal untuk menampilkan WebView Midtrans */}
-            <Modal visible={showWebView} animationType="slide">
-                <View style={{ flex: 1 }}>
-                    <View style={styles.headerWebView}>
-                        <TouchableOpacity onPress={() => setShowWebView(false)}>
-                            <Text style={{ color: 'red', fontWeight: 'bold' }}>Tutup</Text>
-                        </TouchableOpacity>
-                        <Text>Pembayaran Aman</Text>
-                        <View style={{ width: 40 }} />
+            {/* Modal WebView hanya untuk Mobile */}
+            {Platform.OS !== 'web' && (
+                <Modal visible={showWebView} animationType="slide">
+                    <View style={{ flex: 1 }}>
+                        <View style={styles.headerWebView}>
+                            <TouchableOpacity onPress={() => setShowWebView(false)}>
+                                <Text style={{ color: 'red', fontWeight: 'bold' }}>Tutup</Text>
+                            </TouchableOpacity>
+                            <Text>Pembayaran Aman</Text>
+                            <View style={{ width: 40 }} />
+                        </View>
+                        
+                        {paymentUrl && (
+                            <WebView 
+                                source={{ uri: paymentUrl }} 
+                                onNavigationStateChange={handleWebViewNavigationStateChange}
+                                startInLoadingState={true}
+                                renderLoading={() => <ActivityIndicator size="large" color="#2ecc71" style={styles.loader} />}
+                            />
+                        )}
                     </View>
-                    
-                    <WebView 
-                        source={{ uri: paymentUrl }} 
-                        onNavigationStateChange={handleWebViewNavigationStateChange}
-                        startInLoadingState={true}
-                        renderLoading={() => <ActivityIndicator size="large" style={styles.loader} />}
-                    />
-                </View>
-            </Modal>
+                </Modal>
+            )}
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { padding: 20, flex: 1, justifyContent: 'center' },
+    container: { padding: 20, flex: 1, justifyContent: 'center', backgroundColor: '#fff' },
     title: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
     input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 15, marginBottom: 20, fontSize: 16 },
     button: { backgroundColor: '#2ecc71', padding: 15, borderRadius: 8, alignItems: 'center' },
     buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-    headerWebView: { height: 50, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, borderBottomWidth: 1, borderColor: '#eee' },
-    loader: { position: 'absolute', top: '50%', left: '50%' }
+    headerWebView: { height: 60, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15, borderBottomWidth: 1, borderColor: '#eee', paddingTop: 10 },
+    loader: { flex: 1, justifyContent: 'center', alignItems: 'center' }
 });
 
 export default TopUpScreen;
