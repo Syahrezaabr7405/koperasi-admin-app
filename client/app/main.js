@@ -155,62 +155,90 @@ export default function MainScreen() {
 
   // --- FUNGSI SIMPANAN WAJIB ---
   const handleWajib = async () => {
-    const currentUser = user || localStorage.getItem('koperasi_user');
+    // 1. Ambil data user terbaru dari state atau storage
+    let currentUser = user || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('koperasi_user')) : null);
     
-    if(!currentUser) return showAlert('Gagal', 'User data tidak ditemukan.');
-    if (typeof currentUser === 'string') {
-        try { currentUser = JSON.parse(currentUser); } catch(e) {}
-    }
+    if (!currentUser) return showAlert('Gagal', 'User data tidak ditemukan.');
 
     const biayaWajib = 10000;
-    const saldoSaatIni = currentUser.balance;
+    const saldoSaatIni = currentUser.balance || 0;
 
+    // 2. Validasi Awal di Frontend (Saldo)
     if (saldoSaatIni < biayaWajib) {
       return showAlert('Gagal', `Saldo kurang.\nSaldo: Rp ${saldoSaatIni}\nBiaya: Rp ${biayaWajib}`);
     }
 
-    // Cek Bulan Ini Sudah Lunas?
+    // 3. Validasi: Apakah Bulan Ini Sudah Lunas?
     const now = new Date();
     const lastPaid = currentUser.lastPaidWajib ? new Date(currentUser.lastPaidWajib) : null;
     let isLunasBulanIni = false;
+
     if (lastPaid) {
-        const bulanIni = now.getMonth();
-        const tahunIni = now.getFullYear();
-        const bulanBayar = lastPaid.getMonth();
-        const tahunBayar = lastPaid.getFullYear();
-        isLunasBulanIni = (bulanIni === bulanBayar && tahunIni === tahunBayar);
+      const bulanIni = now.getMonth();
+      const tahunIni = now.getFullYear();
+      const bulanBayar = lastPaid.getMonth();
+      const tahunBayar = lastPaid.getFullYear();
+      isLunasBulanIni = (bulanIni === bulanBayar && tahunIni === tahunBayar);
     }
 
     if (isLunasBulanIni) {
       return showAlert('Info', 'Simpanan Wajib bulan ini sudah dibayar.\nSilakan bayar bulan depan.');
     }
 
+    // 4. Konfirmasi Pembayaran
     showAlert('Konfirmasi', `Bayar Iuran Wajib bulan ini sebesar Rp ${biayaWajib}?`, async () => {
-       const targetId = currentUser._id || currentUser.id; // Pastikan ambil salah satu yang ada
-       const res = await updateBalance(targetId, biayaWajib, 'bayar_wajib');
-       if (res.success) {
-         const updatedUser = { ...currentUser, balance: res.user.balance, wajibMonths: res.user.wajibMonths + 1 };
-         setUser(updatedUser);
-         setUserData(updatedUser);
-         try { localStorage.setItem('koperasi_user', JSON.stringify(updatedUser)); } catch(e) {}
-         showAlert('Berhasil', `Pembayaran Wajib Berhasil!\nTotal Bulan: ${updatedUser.wajibMonths}`);
-       } else {
-         showAlert('Gagal', res.message || 'Gagal membayar.');
-       }
+      const targetId = currentUser._id || currentUser.id;
+      
+      // --- PANGGIL API ---
+      // Gunakan 'wajib' agar sinkron dengan logic includes('wajib') di server.js
+      const res = await updateBalance(targetId, biayaWajib, 'wajib');
+
+      if (res.success) {
+        // AMBIL DATA LANGSUNG DARI SERVER (res.user)
+        // Ini paling aman karena saldo & jumlah bulan dijamin sama dengan DB
+        const updatedUserFromDB = res.user; 
+        
+        setUser(updatedUserFromDB);
+        setUserData(updatedUserFromDB);
+        
+        try { 
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('koperasi_user', JSON.stringify(updatedUserFromDB)); 
+          }
+        } catch(e) {
+          console.error("Gagal simpan ke localStorage", e);
+        }
+        
+        showAlert('Berhasil', `Pembayaran Wajib Berhasil!\nTotal Bulan: ${updatedUserFromDB.wajibMonths}`);
+      } else {
+        // Jika saldo di DB ternyata kurang, atau ada error server
+        showAlert('Gagal', res.message || 'Gagal membayar.');
+      }
     });
   };
 
   // --- FUNGSI SIMPANAN POKOK ---
   const handlePokok = async () => {
     if (user.pokokPaid) return showAlert('Lunas', 'Simpanan Pokok sudah lunas!');
-    const res = await updateBalance(user?._id || user?.id, 50000, 'pay_pokok');
+    
+    // 1. Kirim 'pokok' agar sesuai dengan server.js (atau pakai perbaikan includes saya sebelumnya)
+    // 2. Pastikan nominal 50000 dikirim
+    const res = await updateBalance(user?._id || user?.id, 50000, 'pokok');
+    
     if(res.success) {
-      const currentUser = { ...user, balance: res.user.balance, pokokPaid: true };
-      setUser(currentUser);
-      setUserData(currentUser);
+      // HANYA UPDATE JIKA SERVER BERHASIL
+      const updatedUser = { 
+        ...user, 
+        balance: res.user.balance, 
+        pokokPaid: res.user.pokokPaid // Ambil status asli dari DB
+      };
+      setUser(updatedUser);
+      setUserData(updatedUser);
       showAlert('Berhasil', 'Simpanan Pokok Lunas!');
     } else {
-      showAlert('Gagal', res.message);
+      // Jika saldo kurang (40rb < 50rb), server akan kirim success: false
+      // Tampilan TIDAK AKAN berubah jadi lunas
+      showAlert('Gagal', res.message || 'Saldo tidak cukup');
     }
   };
 

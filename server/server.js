@@ -102,42 +102,85 @@ app.get('/users', async (req, res) => {
     res.json(users);
 });
 
-// --- FIX ERROR 404: UPDATE BALANCE & SIMPANAN ---
+// --- REVISI FINAL: UPDATE BALANCE & SIMPANAN ---
 app.post('/user/update-balance', async (req, res) => {
     try {
         const { userId, amount, type } = req.body;
         
-        // Cek apakah userId ada (mencegah error 'undefined' dari log kamu)
+        // 1. Validasi ID User (Mencegah error 'undefined' atau ID kosong)
         if (!userId || userId === "undefined") {
-            return res.status(400).json({ success: false, message: 'ID User tidak valid atau undefined' });
+            return res.status(400).json({ 
+                success: false, 
+                message: 'ID User tidak valid atau tidak terdeteksi.' 
+            });
         }
 
         const user = await User.findById(userId);
-        if (!user) return res.status(404).json({ success: false, message: 'User tidak ditemukan di database' });
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'User tidak ditemukan di database.' 
+            });
+        }
 
         const nominal = Number(amount);
+        let transactionSuccess = false;
 
-        // Logika berdasarkan tipe transaksi
+        // 2. Logika Berdasarkan Tipe Transaksi
         if (type === 'topup') {
             user.balance = (user.balance || 0) + nominal;
-        } else if (type === 'pokok') {
-            // Bayar simpanan pokok (biasanya sekali di awal)
-            if (user.balance < nominal) return res.status(400).json({ success: false, message: 'Saldo tidak cukup' });
+            transactionSuccess = true;
+        } 
+        else if (type.includes('pokok')) {
+            // Cek saldo untuk Simpanan Pokok
+            if (user.balance < nominal) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: `Saldo tidak cukup. Saldo Anda Rp${user.balance}, biaya Rp${nominal}` 
+                });
+            }
             user.balance -= nominal;
             user.pokokPaid = true;
-        } else if (type === 'wajib') {
-            // Bayar simpanan wajib (bulanan)
-            if (user.balance < nominal) return res.status(400).json({ success: false, message: 'Saldo tidak cukup' });
+            transactionSuccess = true;
+        } 
+        else if (type.includes('wajib')) {
+            // Cek saldo untuk Simpanan Wajib
+            if (user.balance < nominal) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: `Saldo tidak cukup. Saldo Anda Rp${user.balance}, biaya Rp${nominal}` 
+                });
+            }
             user.balance -= nominal;
             user.wajibMonths = (user.wajibMonths || 0) + 1;
             user.lastPaidWajib = new Date().toISOString();
+            transactionSuccess = true;
+        } 
+        else {
+            // JIKA TYPE TIDAK COCOK (Misal typo: 'payy_pokok')
+            return res.status(400).json({ 
+                success: false, 
+                message: `Tipe transaksi '${type}' tidak dikenal oleh server.` 
+            });
         }
 
-        await user.save();
-        res.json({ success: true, balance: user.balance, user });
+        // 3. Simpan Perubahan ke MongoDB
+        if (transactionSuccess) {
+            await user.save();
+            // Kirim balik data user TERBARU agar Frontend bisa langsung update tampilan
+            return res.json({ 
+                success: true, 
+                balance: user.balance, 
+                user: user 
+            });
+        }
+
     } catch (err) {
-        console.error("Error Update Balance:", err);
-        res.status(500).json({ success: false, message: err.message });
+        console.error("CRITICAL ERROR Update Balance:", err);
+        res.status(500).json({ 
+            success: false, 
+            message: "Terjadi kesalahan pada server: " + err.message 
+        });
     }
 });
 
