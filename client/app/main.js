@@ -56,16 +56,26 @@ export default function MainScreen() {
   useEffect(() => {
     const loadUser = () => {
       try {
-        const savedUser = localStorage.getItem('koperasi_user');
-        if (savedUser) {
-          const parsedUser = JSON.parse(savedUser);
-          setUser(parsedUser);
-          setUserData(parsedUser);
+        // Pengecekan apakah kita di lingkungan Browser (Web)
+        const isWeb = typeof window !== 'undefined' && window.localStorage;
+        
+        if (isWeb) {
+          const savedUser = localStorage.getItem('koperasi_user');
+          if (savedUser) {
+            const parsedUser = JSON.parse(savedUser);
+            setUser(parsedUser);
+            setUserData(parsedUser);
+          } else {
+            router.replace('/');
+          }
         } else {
-          // Jika tidak ada user di storage, paksa ke halaman login
-          router.replace('/');
+          // Jika di Mobile (Expo Go), sementara pakai data dummy atau arahkan ke login
+          // Karena localStorage tidak ada di Mobile.
+          if (!user) router.replace('/');
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error("Gagal load user:", e);
+      }
     };
     loadUser();
   }, []);
@@ -241,7 +251,7 @@ export default function MainScreen() {
           <Text style={styles.headerTitle}>Toko Koperasi</Text>
           <FlatList
             data={products}
-            keyExtractor={(item) => item.id.toString()}
+            keyExtractor={(item) => (item._id || item.id || Math.random()).toString()}
             numColumns={2}
             renderItem={({ item }) => (
               <View style={styles.card}>
@@ -287,9 +297,9 @@ export default function MainScreen() {
           ) : (
             <View>
               {orders.map((order) => (
-                <View key={order.id} style={styles.orderCard}>
+                <View key={order._id || order.id} style={styles.orderCard}>
                   <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom: 5}}>
-                    <Text style={{fontWeight:'bold', color:'#333'}}>ID: {order.id}</Text>
+                    <Text style={{fontWeight:'bold', color:'#333'}}>ID: {order._id || order.id}</Text>
                     <Text style={[styles.statusText, order.status === 'Sedang Diproses' && styles.statusProses, order.status === 'Dikirim' && styles.statusDikirim, order.status === 'Selesai' && styles.statusSelesai]}>
                       {order.status}
                     </Text>
