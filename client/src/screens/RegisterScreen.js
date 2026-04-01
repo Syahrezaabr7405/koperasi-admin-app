@@ -31,7 +31,7 @@ export default function RegisterScreen() {
   };
 
   const handleRegister = async () => {
-    if(!formData.name || !formData.username || !formData.password || !formData.nik || !formData.email || !confirmPassword) {
+    if(!formData.name || !formData.username || !formData.password || !formData.nik || !formData.email || !formData.phone || !confirmPassword) {
       return triggerAlert('Data Belum Lengkap', 'Mohon lengkapi semua kolom pendaftaran.', 'error');
     }
     // Validasi apakah password cocok
@@ -73,6 +73,12 @@ export default function RegisterScreen() {
           <View style={styles.inputWrapper}>
              <Ionicons name="card-outline" size={20} color="#D32F2F" />
              <TextInput placeholder="NIK" style={styles.inputWithIcon} keyboardType="numeric" onChangeText={(t) => setFormData({...formData, nik: t})} />
+          </View>
+
+          {/* Kolom Nomor Telepon */}
+          <View style={styles.inputWrapper}>
+             <Ionicons name="call-outline" size={20} color="#D32F2F" />
+             <TextInput placeholder="Nomor Telepon Aktif" style={styles.inputWithIcon} keyboardType="phone-pad" onChangeText={(t) => setFormData({...formData, phone: t})} />
           </View>
 
           <View style={styles.inputWrapper}>
