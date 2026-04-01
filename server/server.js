@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const midtransClient = require('midtrans-client'); // Tambahan Midtrans
+const nodemailer = require('nodemailer'); // Tambahkan di baris paling atas
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -15,7 +16,6 @@ app.use(cors({
 app.use(express.json());
 
 // 2. KONFIGURASI MIDTRANS (Ganti Key dengan milikmu di Dashboard Midtrans)
-// JANGAN masukkan kodenya langsung di sini
 let snap = new midtransClient.Snap({
     isProduction: false,
     serverKey: process.env.MIDTRANS_SERVER_KEY, // Ambil dari pengaturan Vercel
@@ -44,13 +44,97 @@ app.use(async (req, res, next) => {
 
 // 4. MODEL DATA (Tetap sama)
 const User = mongoose.model('User', new mongoose.Schema({
-    name: String, username: { type: String, unique: true }, password: String,
-    nik: String, phone: String, role: { type: String, default: 'customer' },
-    balance: { type: Number, default: 0 }, pokokPaid: { type: Boolean, default: false },
-    wajibMonths: { type: Number, default: 0 }, lastPaidWajib: String
+    name: String, 
+    username: { type: String, unique: true }, 
+    password: String,
+    nik: { type: String, unique: true }, // Tambahkan unique agar NIK tidak ganda
+    email: { type: String, lowercase: true }, // TAMBAHKAN EMAIL
+    phone: String, 
+    role: { type: String, default: 'customer' },
+    balance: { type: Number, default: 0 }, 
+    pokokPaid: { type: Boolean, default: false },
+    wajibMonths: { type: Number, default: 0 }, 
+    lastPaidWajib: String,
+    resetOtp: String,         // Untuk simpan kode OTP sementara
+    otpExpires: Date          // Masa berlaku OTP
 }));
 
-// INI YANG HILANG (Tambahkan ini agar tidak ReferenceError)
+// --- KONFIGURASI PENGIRIM EMAIL (NODEMAILER) ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'syahrezaadminkopkel@gmail.com', // Ganti dengan email koperasimu
+        pass: 'dnsn aftf liym cczn'      // Ganti dengan App Password dari Google
+    }
+});
+
+// --- ENDPOINT: REQUEST RESET PASSWORD ---
+app.post('/api/forgot-password', async (req, res) => {
+    const { nik, email } = req.body;
+
+    try {
+        // Cari user yang NIK dan Email-nya COCOK & role-nya 'customer'
+        const user = await User.findOne({ 
+            nik: nik, 
+            email: email.toLowerCase(),
+            role: 'customer' 
+        });
+
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Data NIK atau Email tidak ditemukan dalam sistem.' 
+            });
+        }
+
+        // Buat OTP 6 Digit
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        user.resetOtp = otp;
+        user.otpExpires = Date.now() + 600000; // Berlaku 10 menit
+        await user.save();
+
+        // Kirim Email
+        await transporter.sendMail({
+            from: '"Koperasi Jati" <noreply@koperasi.com>',
+            to: user.email,
+            subject: "Kode Reset Password Akun Koperasi",
+            html: `<h3>Kode OTP Anda: <b>${otp}</b></h3>
+                   <p>Gunakan kode ini untuk mengganti password Anda. Jangan berikan kode ini kepada siapapun.</p>`
+        });
+
+        res.json({ success: true, message: 'Kode OTP telah dikirim ke email Anda.' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Gagal mengirim email.' });
+    }
+});
+
+// --- ENDPOINT: VERIFIKASI OTP & UPDATE PASSWORD BARU ---
+app.post('/api/reset-password', async (req, res) => {
+    const { nik, otp, newPassword } = req.body;
+
+    try {
+        const user = await User.findOne({ 
+            nik: nik, 
+            resetOtp: otp, 
+            otpExpires: { $gt: Date.now() } 
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: 'Kode OTP salah atau sudah kedaluwarsa.' });
+        }
+
+        // Update password (disarankan pakai bcrypt untuk hash)
+        user.password = newPassword; 
+        user.resetOtp = undefined; // Hapus OTP setelah dipakai
+        user.otpExpires = undefined;
+        await user.save();
+
+        res.json({ success: true, message: 'Password berhasil diperbarui. Silakan login kembali.' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Gagal memperbarui password.' });
+    }
+});
+
 const Product = mongoose.models.Product || mongoose.model('Product', new mongoose.Schema({
     name: String, 
     price: Number, 
@@ -155,10 +239,14 @@ app.post('/login', async (req, res) => {
 });
 
 app.post('/register', async (req, res) => {
-    const { name, username, password, nik, phone } = req.body;
+    // Tambahkan email di destructuring req.body
+    const { name, username, password, nik, phone, email } = req.body;
+    
     const existing = await User.findOne({ username });
     if (existing) return res.status(400).json({ success: false, message: 'Username sudah dipakai' });
-    const newUser = new User({ name, username, password, nik, phone });
+    
+    // Masukkan email ke objek newUser
+    const newUser = new User({ name, username, password, nik, phone, email });
     await newUser.save();
     res.json({ success: true, user: newUser });
 });

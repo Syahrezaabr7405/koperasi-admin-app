@@ -16,6 +16,11 @@ import Logo from '../assets/images/Logo.jpeg';
 import Background from '../assets/images/background.jpg';
 import { useRouter } from 'expo-router';
 import { registerUser } from '../src/services/api';
+import RegisterScreen from '../src/screens/RegisterScreen';
+
+export default function RegisterRoute() {
+  return <RegisterScreen />;
+}
 
 export default function RegisterScreen() {
   const [formData, setFormData] = useState({ name: '', username: '', password: '', nik: '', phone: '' });

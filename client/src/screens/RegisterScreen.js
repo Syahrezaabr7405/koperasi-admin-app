@@ -4,10 +4,10 @@ import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { registerUser } from '../services/api';
 
 export default function RegisterScreen({ navigation }) {
-  const [formData, setFormData] = useState({ name: '', username: '', password: '', nik: '', phone: '' });
+  const [formData, setFormData] = useState({ name: '', username: '', password: '', nik: '', phone: '', email: '' });
 
   const handleRegister = async () => {
-    if(!formData.name || !formData.username || !formData.password) return Alert.alert('Error', 'Mohon lengkapi data');
+    if(!formData.name || !formData.username || !formData.password || !formData.email) return Alert.alert('Error', 'Mohon lengkapi data');
     
     const result = await registerUser(formData);
     if (result.success) {
@@ -23,6 +23,7 @@ export default function RegisterScreen({ navigation }) {
       <Text style={styles.title}>Daftar Akun</Text>
       <TextInput placeholder="Nama Lengkap" style={styles.input} onChangeText={(t) => setFormData({...formData, name: t})} />
       <TextInput placeholder="NIK" style={styles.input} onChangeText={(t) => setFormData({...formData, nik: t})} />
+      <TextInput placeholder="Email Aktif" style={styles.input} onChangeText={(t) => setFormData({...formData, email: t})} keyboardType="email-address"autoCapitalize="none"/>
       <TextInput placeholder="No HP" style={styles.input} onChangeText={(t) => setFormData({...formData, phone: t})} />
       <TextInput placeholder="Username" style={styles.input} onChangeText={(t) => setFormData({...formData, username: t})} />
       <TextInput placeholder="Password" style={styles.input} onChangeText={(t) => setFormData({...formData, password: t})} secureTextEntry />
