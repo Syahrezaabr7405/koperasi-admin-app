@@ -220,19 +220,29 @@ export default function AdminScreen() {
 
   const pickImage = async () => {
     try {
+      // 1. Minta Izin Galeri (Penting!)
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        return showAlert('Izin Ditolak', 'Kami butuh akses galeri untuk mengupload foto produk.');
+      }
+
+      // 2. Buka Galeri
       let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Gunakan konstanta resmi
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.5,
+        quality: 0.3, // Kurangi kualitas ke 0.3 agar string Base64 tidak terlalu panjang (mencegah error server)
+        base64: true, // Ambil base64 langsung dari sini
       });
+
       if (!result.canceled) {
-        const uri = result.assets[0].uri;
-        const base64Data = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
-        setNewProdImage(`data:image/jpeg;base64,${base64Data}`);
+        // Ambil string base64 langsung dari assets
+        const base64String = result.assets[0].base64;
+        setNewProdImage(`data:image/jpeg;base64,${base64String}`);
       }
     } catch (error) {
-      showAlert('Error Foto', 'Gagal mengambil foto.');
+      console.error(error);
+      showAlert('Error Foto', 'Gagal mengambil foto atau membaca file.');
     }
   };
 
@@ -319,49 +329,62 @@ export default function AdminScreen() {
 
           {/* CONTENT: PRODUCTS */}
           {activeTab === 'products' && (
-            <View style={{padding: 10}}>
+            <View style={{ padding: 10 }}>
               <View style={styles.formCard}>
-                <Text style={{fontWeight:'bold', marginBottom:5}}>Tambah Produk</Text>
-                <TextInput placeholder="Nama Produk" style={styles.input} value={newProdName} onChangeText={setNewProdName} />
-                <TextInput placeholder="Harga" style={styles.input} value={newProdPrice} onChangeText={setNewProdPrice} keyboardType="numeric" />
+                <Text style={{ fontWeight: 'bold', marginBottom: 5 }}>Tambah Produk</Text>
                 
-                {Platform.OS !== 'web' ? (
-                  <TouchableOpacity onPress={pickImage} style={styles.uploadBox}>
-                    {newProdImage ? (
-                      <>
-                        <Image source={{ uri: newProdImage }} style={styles.previewImageInBox} />
-                        <Text style={styles.uploadText}>Ubah Foto</Text>
-                      </>
-                    ) : (
-                      <View style={styles.placeholderInBox}>
-                        <Text style={styles.uploadIcon}>📷</Text>
-                        <Text style={styles.uploadText}>Pilih Foto Produk</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ) : (
-                  <View style={[styles.uploadBox, {opacity: 0.5}]}>
-                    <Text style={styles.uploadIcon}>🚫</Text>
-                    <Text style={styles.uploadText}>Upload Foto Hanya Mobile</Text>
-                  </View>
-                )}
+                <TextInput 
+                  placeholder="Nama Produk" 
+                  style={styles.input} 
+                  value={newProdName} 
+                  onChangeText={setNewProdName} 
+                />
                 
+                <TextInput 
+                  placeholder="Harga" 
+                  style={styles.input} 
+                  value={newProdPrice} 
+                  onChangeText={setNewProdPrice} 
+                  keyboardType="numeric" 
+                />
+
+                {/* Bagian Upload Foto: Sekarang aktif untuk Mobile dan Web/Laptop */}
+                <TouchableOpacity onPress={pickImage} style={styles.uploadBox}>
+                  {newProdImage ? (
+                    <>
+                      <Image source={{ uri: newProdImage }} style={styles.previewImageInBox} />
+                      <Text style={styles.uploadText}>Ubah Foto</Text>
+                    </>
+                  ) : (
+                    <View style={styles.placeholderInBox}>
+                      <Text style={styles.uploadIcon}>📷</Text>
+                      <Text style={styles.uploadText}>Pilih Foto Produk</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
                 <Button title="Simpan Produk" onPress={handleAddProduct} />
               </View>
 
+              {/* List Produk yang sudah ada */}
               <FlatList
                 data={products}
                 scrollEnabled={false}
                 keyExtractor={(item) => (item._id || item.id).toString()}
-                renderItem={({item}) => (
+                renderItem={({ item }) => (
                   <View style={styles.prodItem}>
-                    {item.image && <Image source={{ uri: item.image }} style={styles.prodThumb} />}
-                    <View style={{flex:1}}>
-                      <Text style={{fontWeight:'bold'}}>{item.name}</Text>
-                      <Text style={{fontSize:12}}>Rp {item.price}</Text>
+                    {item.image && (
+                      <Image source={{ uri: item.image }} style={styles.prodThumb} />
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: 'bold' }}>{item.name}</Text>
+                      <Text style={{ fontSize: 12 }}>Rp {item.price}</Text>
                     </View>
-                    <TouchableOpacity style={styles.btnDelete} onPress={() => handleDeleteProduct(item._id || item.id)}>
-                      <Text style={{color:'white'}}>Hapus</Text>
+                    <TouchableOpacity 
+                      style={styles.btnDelete} 
+                      onPress={() => handleDeleteProduct(item._id || item.id)}
+                    >
+                      <Text style={{ color: 'white' }}>Hapus</Text>
                     </TouchableOpacity>
                   </View>
                 )}
