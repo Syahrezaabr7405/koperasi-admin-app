@@ -50,6 +50,23 @@ const User = mongoose.model('User', new mongoose.Schema({
     wajibMonths: { type: Number, default: 0 }, lastPaidWajib: String
 }));
 
+// INI YANG HILANG (Tambahkan ini agar tidak ReferenceError)
+const Product = mongoose.models.Product || mongoose.model('Product', new mongoose.Schema({
+    name: String, 
+    price: Number, 
+    image: String
+}), 'products'); // <--- 'products' adalah nama collection di MongoDB Atlas kamu
+
+// Tambahkan juga model Order jika nanti ingin dipakai
+const Order = mongoose.models.Order || mongoose.model('Order', new mongoose.Schema({
+    userId: String, 
+    userName: String, 
+    items: Array, 
+    total: Number, 
+    status: { type: String, default: 'Menunggu' }, 
+    date: String
+}), 'orders');
+
 const TopupRequest = mongoose.model('TopupRequest', new mongoose.Schema({
     userId: String, amount: Number, status: { type: String, default: 'Menunggu Konfirmasi' }, date: String
 }));

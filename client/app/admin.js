@@ -179,7 +179,10 @@ export default function AdminScreen() {
 
   const confirmTopUp = async () => {
     setShowConfirmModal(false);
-    const res = await updateBalance(selectedUser.id, parseInt(topUpAmount), 'topup');
+    // GUNAKAN _id (dengan underscore)
+    const uid = selectedUser._id || selectedUser.id; 
+    const res = await updateBalance(uid, parseInt(topUpAmount), 'topup');
+    
     if(res.success) {
       fetchUsers(); 
       showAlert('Berhasil', 'Saldo berhasil ditambahkan.');
