@@ -140,13 +140,20 @@ export default function MainScreen() {
     if (user.pokokPaid) return showAlert('Lunas', 'Simpanan Pokok sudah lunas!');
     
     showAlert('Konfirmasi', 'Bayar Simpanan Pokok Rp 50.000?', async () => {
+      // 1. Tambahkan loading atau tutup dulu konfirmasinya
       const res = await updateBalance(user._id || user.id, 50000, 'pokok');
-      if (res.success) {
-        setUser(res.user);
-        showAlert('Berhasil', 'Simpanan Pokok Lunas!');
-      } else {
-        showAlert('Gagal', res.message || 'Saldo tidak cukup');
-      }
+      
+      // 2. Berikan jeda sangat kecil (300-500ms) agar modal konfirmasi 
+      // benar-benar selesai menutup sebelum modal hasil dibuka
+      setTimeout(() => {
+        if (res.success) {
+          setUser(res.user);
+          showAlert('Berhasil', 'Simpanan Pokok Lunas!');
+        } else {
+          // Ini tidak akan tertutup secepat kilat lagi
+          showAlert('Gagal', res.message || 'Saldo tidak cukup');
+        }
+      }, 500); 
     });
   };
 
@@ -154,25 +161,38 @@ export default function MainScreen() {
     if (cart.length === 0) return showAlert('Kosong', 'Keranjang masih kosong.');
     if (!address.trim()) return showAlert('Alamat', 'Silakan isi alamat pengiriman.');
 
-    try {
-      const res = await createOrder({ 
-        userId: user._id || user.id, 
-        cartItems: cart, 
-        total: cartTotal, 
-        address: address 
-      });
+    // TAMBAHKAN KONFIRMASI DI SINI
+    showAlert(
+      'Konfirmasi Pesanan', 
+      `Total belanja: Rp ${cartTotal}\nSaldo akan terpotong otomatis. Lanjutkan?`, 
+      async () => {
+        try {
+          // Proses ini hanya jalan jika user menekan tombol "Lanjut" di Alert
+          const res = await createOrder({ 
+            userId: user._id || user.id, 
+            cartItems: cart, 
+            total: cartTotal, 
+            address: address 
+          });
 
-      if (res.success) {
-        showAlert('Sukses', 'Pesanan berhasil dibuat!');
-        setUser(res.user);
-        clearCart();
-        setAddress('');
-        fetchOrders();
+          if (res.success) {
+            // Gunakan setTimeout agar alert sukses tidak tertutup otomatis oleh alert konfirmasi
+            setTimeout(() => {
+              showAlert('Sukses', 'Pesanan berhasil dibuat!');
+              setUser(res.user);
+              clearCart();
+              setAddress('');
+              fetchOrders();
+            }, 500);
+          }
+        } catch (error) {
+          const msg = error.response?.data?.message || 'Gagal terhubung ke server.';
+          setTimeout(() => {
+            showAlert('Gagal', msg);
+          }, 500);
+        }
       }
-    } catch (error) {
-      const msg = error.response?.data?.message || 'Gagal terhubung ke server.';
-      showAlert('Gagal', msg);
-    }
+    );
   };
 
   const confirmLogout = () => {
@@ -357,9 +377,33 @@ const CustomAlert = ({ visible, data, onConfirm, onCancel }) => (
       <View style={styles.alertBox}>
         <Text style={styles.alertTitle}>{data.title}</Text>
         <Text style={styles.alertMsg}>{data.message}</Text>
-        <View style={styles.row}>
-          {data.showCancel && <Button title="Batal" onPress={onCancel} color="#888" />}
-          <Button title={data.showCancel ? "Lanjut" : "OK"} onPress={onConfirm} color="#D32F2F" />
+        
+        {/* Perbaikan layout tombol agar lebih rapi */}
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 15 }}>
+          {data.showCancel && (
+            <TouchableOpacity 
+              onPress={onCancel} 
+              style={{ padding: 10, minWidth: 60, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#888', fontWeight: 'bold' }}>BATAL</Text>
+            </TouchableOpacity>
+          )}
+          
+          <TouchableOpacity 
+            onPress={onConfirm} 
+            style={{ 
+              backgroundColor: '#D32F2F', 
+              paddingVertical: 10, 
+              paddingHorizontal: 20, 
+              borderRadius: 8,
+              minWidth: 80,
+              alignItems: 'center'
+            }}
+          >
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>
+              {data.showCancel ? "LANJUT" : "OK"}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>

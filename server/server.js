@@ -63,6 +63,7 @@ const Order = mongoose.models.Order || mongoose.model('Order', new mongoose.Sche
     userName: String, 
     items: Array, 
     total: Number, 
+    address: String,
     status: { type: String, default: 'Menunggu' }, 
     date: String
 }), 'orders');
