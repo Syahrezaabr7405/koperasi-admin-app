@@ -69,7 +69,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // --- ENDPOINT: REQUEST RESET PASSWORD ---
-app.post('/api/forgot-password', async (req, res) => {
+app.post('/forgot-password', async (req, res) => {
     const { nik, email } = req.body;
 
     try {
@@ -129,7 +129,7 @@ app.post('/api/verify-otp', async (req, res) => {
 });
 
 // --- ENDPOINT: VERIFIKASI OTP & UPDATE PASSWORD BARU ---
-app.post('/api/reset-password', async (req, res) => {
+app.post('/reset-password', async (req, res) => {
     const { nik, otp, newPassword } = req.body;
 
     try {
