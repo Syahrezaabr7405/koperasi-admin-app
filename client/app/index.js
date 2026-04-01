@@ -73,6 +73,7 @@ export default function LoginScreen() {
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        style={{ backgroundColor: 'transparent' }}
       >
         <View style={styles.card}>
           <View style={styles.logoContainer}>
@@ -179,7 +180,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#fff' 
+    backgroundColor: '#000' 
   },
   
   backgroundImage: {
@@ -188,8 +189,9 @@ const styles = StyleSheet.create({
     left: 0, 
     right: 0, 
     bottom: 0,
-    width: Dimensions.get('window').width,
-    height: Dimensions.get('window').height,
+    width: '100%', // Gunakan percentage agar lebih aman di web
+    height: '100%',
+    zIndex: -1, // MEMASTIKAN gambar ada di layer paling bawah
   },
 
   scrollContent: {
@@ -197,6 +199,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 40,
+    backgroundColor: 'transparent', // Pastikan transparent
   },
 
   card: {
