@@ -108,6 +108,26 @@ app.post('/api/forgot-password', async (req, res) => {
     }
 });
 
+// --- ENDPOINT BARU: HANYA VERIFIKASI OTP (STEP 2) ---
+app.post('/api/verify-otp', async (req, res) => {
+    const { nik, otp } = req.body;
+    try {
+        const user = await User.findOne({ 
+            nik: nik, 
+            resetOtp: otp, 
+            otpExpires: { $gt: Date.now() } 
+        });
+
+        if (!user) {
+            return res.status(400).json({ success: false, message: 'Kode OTP salah atau sudah kedaluwarsa.' });
+        }
+
+        res.json({ success: true, message: 'OTP Valid.' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: 'Terjadi kesalahan server.' });
+    }
+});
+
 // --- ENDPOINT: VERIFIKASI OTP & UPDATE PASSWORD BARU ---
 app.post('/api/reset-password', async (req, res) => {
     const { nik, otp, newPassword } = req.body;

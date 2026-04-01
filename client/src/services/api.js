@@ -37,6 +37,25 @@ export const registerUser = async (data) => {
   }
 };
 
+// Tambahkan di api.js
+export const verifyOTP = async (nik, otp) => {
+  try {
+    const response = await axios.post(`${API_URL}/api/verify-otp`, { nik, otp });
+    return response.data;
+  } catch (error) {
+    return error.response ? error.response.data : { success: false, message: 'Server error' };
+  }
+};
+
+export const resetPassword = async (data) => {
+  try {
+    const response = await axios.post(`${API_URL}/api/reset-password`, data);
+    return response.data;
+  } catch (error) {
+    return error.response ? error.response.data : { success: false, message: 'Server error' };
+  }
+};
+
 // --- PRODUCTS ---
 export const getProducts = async () => {
   const response = await axios.get(`${API_URL}/products`);

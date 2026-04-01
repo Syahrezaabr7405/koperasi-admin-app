@@ -4,6 +4,7 @@ import {
   TextInput, Alert, ActivityIndicator, Modal 
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { verifyOTP, resetPassword } from '../src/services/api';
 import axios from 'axios';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -12,117 +13,125 @@ const API_URL = 'https://koperasi-admin-app-jknh.vercel.app';
 export default function ForgotScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [showOtpModal, setShowOtpModal] = useState(false); // Pop-up OTP
   
-  const [formData, setFormData] = useState({ nik: '', email: '', newPassword: '' });
-  const [otp, setOtp] = useState(['', '', '', '', '', '']); // Array untuk 6 kotak OTP
-  const inputRefs = useRef([]); // Ref untuk pindah fokus otomatis
+  // Alur: 1 (Form NIK/Email), 2 (Input OTP), 3 (Input Password Baru)
+  const [step, setStep] = useState(1); 
+  
+  const [formData, setFormData] = useState({ nik: '', email: '', newPassword: '', confirmPassword: '' });
+  const [otp, setOtp] = useState(['', '', '', '', '', '']); 
+  const inputRefs = useRef([]);
 
-  // 1. Fungsi Minta OTP (Step 1)
+  // --- STEP 1: VALIDASI NIK & EMAIL ---
   const handleRequestOTP = async () => {
-    if (!formData.nik || !formData.email || !formData.newPassword) {
-      return Alert.alert("Data Kurang", "NIK, Email, dan Password baru wajib diisi terlebih dahulu.");
+    if (!formData.nik || !formData.email) {
+      return Alert.alert("Peringatan", "NIK dan Email wajib diisi.");
     }
-    
     setLoading(true);
     try {
       const response = await axios.post(`${API_URL}/api/forgot-password`, {
         nik: formData.nik,
         email: formData.email
       });
-
       if (response.data.success) {
         Alert.alert("Berhasil", "Kode OTP telah dikirim ke email Anda.");
-        setShowOtpModal(true); // Munculkan pop-up kotak OTP
+        setStep(2); // Pindah ke tampilan input OTP
       }
     } catch (error) {
-      Alert.alert("Gagal", error.response?.data?.message || "NIK atau Email tidak ditemukan");
+      // Menampilkan pesan spesifik dari server (misal: "Email tidak terdaftar")
+      Alert.alert("Gagal", error.response?.data?.message || "Data tidak ditemukan.");
     } finally {
       setLoading(false);
     }
   };
 
-  // 2. Fungsi Handle Input OTP (Pindah Fokus Otomatis)
-  const handleOtpChange = (value, index) => {
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-
-    // Pindah ke kotak berikutnya jika angka diisi
-    if (value && index < 5) {
-      inputRefs.current[index + 1].focus();
-    }
-  };
-
-  const handleKeyPress = (e, index) => {
-    // Balik ke kotak sebelumnya jika dihapus (Backspace)
-    if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
-      inputRefs.current[index - 1].focus();
-    }
-  };
-
-  // 3. Fungsi Verifikasi & Reset (Final Step)
-  const handleFinalReset = async () => {
+  // --- STEP 2: VERIFIKASI OTP ---
+  const handleVerifyOTP = async () => {
     const finalOtp = otp.join('');
-    if (finalOtp.length < 6) return Alert.alert("Error", "Masukkan 6 digit OTP lengkap");
+    if (finalOtp.length < 6) return Alert.alert("Error", "Masukkan 6 digit OTP");
+
+    setLoading(true);
+    try {
+      // Kita kirim OTP ke server untuk dicek apakah valid
+      const response = await axios.post(`${API_URL}/api/verify-otp`, {
+        nik: formData.nik,
+        otp: finalOtp
+      });
+
+      if (response.data.success) {
+        Alert.alert("Berhasil", "Kode OTP sesuai.");
+        setStep(3); // Pindah ke tampilan Reset Password
+      }
+    } catch (error) {
+      Alert.alert("Gagal", "Kode OTP tidak sesuai.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- STEP 3: UPDATE PASSWORD BARU ---
+  const handleUpdatePassword = async () => {
+    if (!formData.newPassword || !formData.confirmPassword) {
+      return Alert.alert("Error", "Semua kolom wajib diisi.");
+    }
+    if (formData.newPassword !== formData.confirmPassword) {
+      return Alert.alert("Error", "Konfirmasi password tidak cocok.");
+    }
 
     setLoading(true);
     try {
       const response = await axios.post(`${API_URL}/api/reset-password`, {
         nik: formData.nik,
-        otp: finalOtp,
+        otp: otp.join(''),
         newPassword: formData.newPassword
       });
 
       if (response.data.success) {
-        setShowOtpModal(false);
-        Alert.alert("Sukses", "Password berhasil diubah!", [{ text: "Login", onPress: () => router.replace('/') }]);
+        Alert.alert("Sukses", "Password berhasil diubah!", [
+          { text: "Kembali Login", onPress: () => router.replace('/') }
+        ]);
       }
     } catch (error) {
-      Alert.alert("OTP Salah", "Kode yang Anda masukkan tidak valid.");
+      Alert.alert("Gagal", "Gagal memperbarui password.");
     } finally {
       setLoading(false);
     }
   };
 
+  // Helper Input OTP
+  const handleOtpChange = (value, index) => {
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+    if (value && index < 5) inputRefs.current[index + 1].focus();
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Reset Password</Text>
-        <Text style={styles.subtitle}>Isi data di bawah untuk memulai proses reset password.</Text>
-        
-        {/* FORM INPUT UTAMA */}
-        <View style={styles.inputWrapper}>
-          <Ionicons name="card-outline" size={20} color="#D32F2F" style={styles.icon} />
-          <TextInput placeholder="Masukkan NIK" style={styles.input} onChangeText={(t) => setFormData({...formData, nik: t})} keyboardType="numeric" />
-        </View>
+        <Text style={styles.title}>Lupa Password</Text>
 
-        <View style={styles.inputWrapper}>
-          <Ionicons name="mail-outline" size={20} color="#D32F2F" style={styles.icon} />
-          <TextInput placeholder="Masukkan Email" style={styles.input} onChangeText={(t) => setFormData({...formData, email: t})} autoCapitalize="none" />
-        </View>
+        {/* --- TAMPILAN STEP 1: FORM AWAL --- */}
+        {step === 1 && (
+          <>
+            <Text style={styles.subtitle}>Masukkan NIK dan Email aktif Anda.</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="card-outline" size={20} color="#D32F2F" style={styles.icon} />
+              <TextInput placeholder="NIK Anda" style={styles.input} keyboardType="numeric" onChangeText={(t) => setFormData({...formData, nik: t})} />
+            </View>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="mail-outline" size={20} color="#D32F2F" style={styles.icon} />
+              <TextInput placeholder="Email Aktif" style={styles.input} autoCapitalize="none" onChangeText={(t) => setFormData({...formData, email: t})} />
+            </View>
+            <TouchableOpacity style={styles.btnPrimary} onPress={handleRequestOTP} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Lanjutkan</Text>}
+            </TouchableOpacity>
+          </>
+        )}
 
-        <View style={styles.inputWrapper}>
-          <Ionicons name="lock-closed-outline" size={20} color="#D32F2F" style={styles.icon} />
-          <TextInput placeholder="Buat Password Baru" style={styles.input} secureTextEntry onChangeText={(t) => setFormData({...formData, newPassword: t})} />
-        </View>
-
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleRequestOTP} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Verifikasi & Kirim OTP</Text>}
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.btnBack} onPress={() => router.back()}>
-          <Text style={styles.btnBackText}>Kembali ke Login</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* --- MODAL POP-UP KHUSUS 6 KOTAK OTP --- */}
-      <Modal visible={showOtpModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.otpBox}>
-            <Text style={styles.otpTitle}>Verifikasi OTP</Text>
-            <Text style={styles.otpSubtitle}>Masukkan 6 digit kode yang dikirim ke email Anda.</Text>
-            
+        {/* --- TAMPILAN STEP 2: INPUT 6 KOTAK OTP --- */}
+        {step === 2 && (
+          <>
+            <Text style={styles.subtitle}>Masukkan 6 digit kode OTP dari email Anda.</Text>
             <View style={styles.otpContainer}>
               {otp.map((digit, index) => (
                 <TextInput
@@ -131,23 +140,40 @@ export default function ForgotScreen() {
                   style={styles.otpInput}
                   keyboardType="numeric"
                   maxLength={1}
-                  value={digit}
                   onChangeText={(v) => handleOtpChange(v, index)}
-                  onKeyPress={(e) => handleKeyPress(e, index)}
+                  onKeyPress={(e) => e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0 && inputRefs.current[index - 1].focus()}
                 />
               ))}
             </View>
-
-            <TouchableOpacity style={styles.btnPrimary} onPress={handleFinalReset} disabled={loading}>
-               {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Konfirmasi OTP</Text>}
+            <TouchableOpacity style={styles.btnPrimary} onPress={handleVerifyOTP} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Verifikasi Kode</Text>}
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => setStep(1)} style={{marginTop: 15}}><Text style={{textAlign:'center', color:'#888'}}>Ganti Email</Text></TouchableOpacity>
+          </>
+        )}
 
-            <TouchableOpacity onPress={() => setShowOtpModal(false)} style={{marginTop: 15}}>
-              <Text style={{color: '#888'}}>Batal</Text>
+        {/* --- TAMPILAN STEP 3: RESET PASSWORD --- */}
+        {step === 3 && (
+          <>
+            <Text style={styles.subtitle}>Buat password baru yang aman.</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="lock-closed-outline" size={20} color="#D32F2F" style={styles.icon} />
+              <TextInput placeholder="Password Baru" style={styles.input} secureTextEntry onChangeText={(t) => setFormData({...formData, newPassword: t})} />
+            </View>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="shield-checkmark-outline" size={20} color="#D32F2F" style={styles.icon} />
+              <TextInput placeholder="Konfirmasi Password Baru" style={styles.input} secureTextEntry onChangeText={(t) => setFormData({...formData, confirmPassword: t})} />
+            </View>
+            <TouchableOpacity style={styles.btnPrimary} onPress={handleUpdatePassword} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Simpan Password</Text>}
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+          </>
+        )}
+
+        <TouchableOpacity style={styles.btnBack} onPress={() => router.back()}>
+          <Text style={styles.btnBackText}>Kembali ke Login</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -155,7 +181,7 @@ export default function ForgotScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, justifyContent: 'center', backgroundColor: '#fff' },
   card: { padding: 10 },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#D32F2F', marginBottom: 10, textAlign: 'center' },
+  title: { fontSize: 26, fontWeight: 'bold', color: '#D32F2F', marginBottom: 10, textAlign: 'center' },
   subtitle: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 25 },
   inputWrapper: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: '#F5F5F5',
@@ -165,14 +191,8 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15 },
   btnPrimary: { backgroundColor: '#D32F2F', padding: 15, borderRadius: 10, alignItems: 'center', marginTop: 10, width: '100%' },
   btnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-  btnBack: { marginTop: 25, alignItems: 'center' },
-  btnBackText: { color: '#888' },
-
-  // Styles untuk Pop-up OTP
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  otpBox: { backgroundColor: 'white', width: '90%', padding: 25, borderRadius: 20, alignItems: 'center' },
-  otpTitle: { fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 10 },
-  otpSubtitle: { fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 20 },
+  btnBack: { marginTop: 30, alignItems: 'center' },
+  btnBackText: { color: '#888', fontWeight: '500' },
   otpContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 25 },
   otpInput: {
     width: 45, height: 55, backgroundColor: '#F5F5F5', borderRadius: 10,
