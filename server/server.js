@@ -69,7 +69,7 @@ const transporter = nodemailer.createTransport({
 });
 
 // --- ENDPOINT: REQUEST RESET PASSWORD ---
-app.post('/api/forgot-password', async (req, res) => {
+app.post('/forgot-password', async (req, res) => {
     const { nik, email } = req.body;
 
     try {
@@ -109,7 +109,7 @@ app.post('/api/forgot-password', async (req, res) => {
 });
 
 // --- ENDPOINT BARU: HANYA VERIFIKASI OTP (STEP 2) ---
-app.post('/api/verify-otp', async (req, res) => {
+app.post('/verify-otp', async (req, res) => {
     const { nik, otp } = req.body;
     try {
         const user = await User.findOne({ 
@@ -129,7 +129,7 @@ app.post('/api/verify-otp', async (req, res) => {
 });
 
 // --- ENDPOINT: VERIFIKASI OTP & UPDATE PASSWORD BARU ---
-app.post('/api/reset-password', async (req, res) => {
+app.post('/reset-password', async (req, res) => {
     const { nik, otp, newPassword } = req.body;
 
     try {
@@ -259,16 +259,44 @@ app.post('/login', async (req, res) => {
 });
 
 app.post('/register', async (req, res) => {
-    // Tambahkan email di destructuring req.body
-    const { name, username, password, nik, phone, email } = req.body;
-    
-    const existing = await User.findOne({ username });
-    if (existing) return res.status(400).json({ success: false, message: 'Username sudah dipakai' });
-    
-    // Masukkan email ke objek newUser
-    const newUser = new User({ name, username, password, nik, phone, email });
-    await newUser.save();
-    res.json({ success: true, user: newUser });
+    try {
+        const { name, username, password, nik, phone, email } = req.body;
+
+        // 1. Cek apakah Username sudah ada
+        const existingUser = await User.findOne({ username });
+        if (existingUser) {
+            return res.status(400).json({ success: false, message: 'Username sudah dipakai' });
+        }
+
+        // 2. Cek apakah NIK sudah ada (Sangat penting karena NIK bersifat Unique)
+        const existingNik = await User.findOne({ nik });
+        if (existingNik) {
+            return res.status(400).json({ success: false, message: 'NIK ini sudah terdaftar' });
+        }
+
+        // 3. Simpan user baru
+        const newUser = new User({ 
+            name, 
+            username, 
+            password, 
+            nik, 
+            phone, 
+            email: email ? email.toLowerCase() : "" // Hindari error undefined
+        });
+
+        await newUser.save();
+        res.json({ success: true, user: newUser });
+
+    } catch (err) {
+        // JIKA TERJADI ERROR (Misal: masalah indeks atau koneksi Atlas)
+        console.error("Detail Error Register:", err);
+        
+        // Kirim pesan error aslinya ke Frontend agar kamu bisa baca di log/alert
+        res.status(500).json({ 
+            success: false, 
+            message: 'Gagal register: ' + err.message 
+        });
+    }
 });
 
 // --- PRODUCTS (ADMIN & USER) ---
