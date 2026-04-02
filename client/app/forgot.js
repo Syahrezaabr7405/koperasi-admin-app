@@ -1,13 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
   TextInput, Alert, ActivityIndicator, Modal, Keyboard 
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { verifyOTP, resetPassword } from '../src/services/api';
 import axios from 'axios';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect } from 'react';
 
 const API_URL = 'https://koperasi-admin-app-jknh.vercel.app'; 
 
@@ -21,6 +19,9 @@ export default function ForgotScreen() {
   
   const [formData, setFormData] = useState({ nik: '', email: '', newPassword: '', confirmPassword: '' });
   const [otp, setOtp] = useState(['', '', '', '', '', '']); 
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState('');
+  
   const inputRefs = useRef([]);
 
   useEffect(() => {
@@ -42,27 +43,24 @@ export default function ForgotScreen() {
       });
       if (response.data.success) {
         Alert.alert("Berhasil", "Kode OTP telah dikirim ke email Anda.");
-        setStep(2); // Pindah ke tampilan input OTP
+        setStep(2); 
       }
     } catch (error) {
-      // Menampilkan pesan spesifik dari server (misal: "Email tidak terdaftar")
       Alert.alert("Gagal", error.response?.data?.message || "Data tidak ditemukan.");
     } finally {
       setLoading(false);
     }
   };
 
-// --- STEP 2: VERIFIKASI OTP ---
+  // --- STEP 2: VERIFIKASI OTP ---
   const handleVerifyOTP = async () => {
     const finalOtp = otp.join('');
-    
     if (finalOtp.length < 6) {
       return Alert.alert("Error", "Masukkan 6 digit OTP");
     }
 
     setLoading(true);
     try {
-      // Pastikan URL API sudah benar (tanpa double /api jika perlu)
       const response = await axios.post(`${API_URL}/api/verify-otp`, {
         nik: formData.nik,
         otp: finalOtp
@@ -70,20 +68,11 @@ export default function ForgotScreen() {
 
       if (response.data.success) {
         Alert.alert("Berhasil", "Kode OTP sesuai.");
-        setStep(3); // Pindah ke tampilan Reset Password
+        setStep(3); 
       }
     } catch (error) {
-      // Ambil pesan error spesifik dari backend (misal: "OTP sudah kedaluwarsa")
       const msg = error.response?.data?.message || "Kode OTP tidak sesuai atau kedaluwarsa.";
-      
-      // Jika error 404, berarti rutenya belum ada di server
-      if (error.response?.status === 404) {
-        Alert.alert("Error 404", "Rute API tidak ditemukan. Cek kembali URL di backend.");
-      } else {
-        Alert.alert("Gagal", msg);
-      }
-
-      console.log("Detail Error Verify:", error.response?.data);
+      Alert.alert("Gagal", msg);
     } finally {
       setLoading(false);
     }
@@ -112,34 +101,14 @@ export default function ForgotScreen() {
         newPassword: formData.newPassword
       });
 
-      // DEBUG: Cek apa isi response dari server di terminal/console
-      console.log("Respon Server:", response.data);
-
-      // Cek apakah server mengirimkan success: true (sesuai server.js kamu)
       if (response.data.success || response.status === 200) {
-        Alert.alert(
-          "Berhasil", 
-          "Password baru telah berhasil disimpan, silahkan kembali ke halaman login", 
-          [
-            { 
-              text: "Ke Halaman Login", 
-              onPress: () => {
-                // Gunakan replace agar user tidak bisa back ke halaman forgot password lagi
-                router.replace('/'); 
-              }
-            }
-          ],
-          { cancelable: false }
-        );
-      } else {
-        // Jika status 200 tapi success-nya false (jarang terjadi tapi mungkin)
-        Alert.alert("Gagal", response.data.message || "Gagal memperbarui password.");
+        // TAMPILKAN MODAL CUSTOM
+        setModalMessage("Password baru telah berhasil disimpan, silahkan kembali ke halaman login");
+        setShowSuccessModal(true);
       }
-
     } catch (error) {
       const serverMessage = error.response?.data?.message || "Terjadi kesalahan pada server.";
       Alert.alert("Gagal", serverMessage);
-      console.log("Detail Error Update Password:", error.response?.data);
     } finally {
       setLoading(false);
     }
@@ -222,6 +191,34 @@ export default function ForgotScreen() {
           <Text style={styles.btnBackText}>Kembali ke Login</Text>
         </TouchableOpacity>
       </View>
+
+      {/* --- CUSTOM ALERT MODAL --- */}
+      <Modal
+        visible={showSuccessModal}
+        transparent={true}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.successIconCircle}>
+              <Ionicons name="checkmark" size={40} color="white" />
+            </View>
+            
+            <Text style={styles.modalTitle}>Berhasil!</Text>
+            <Text style={styles.modalText}>{modalMessage}</Text>
+            
+            <TouchableOpacity 
+              style={styles.modalBtn} 
+              onPress={() => {
+                setShowSuccessModal(false);
+                router.replace('/');
+              }}
+            >
+              <Text style={styles.modalBtnText}>Ke Halaman Login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -245,5 +242,60 @@ const styles = StyleSheet.create({
   otpInput: {
     width: 45, height: 55, backgroundColor: '#F5F5F5', borderRadius: 10,
     borderWidth: 1, borderColor: '#DDD', textAlign: 'center', fontSize: 20, fontWeight: 'bold', color: '#D32F2F'
-  }
+  },
+  // --- STYLES UNTUK MODAL CUSTOM ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)', 
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  },
+  modalContent: {
+    width: '100%',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 25,
+    alignItems: 'center',
+    elevation: 10, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  successIconCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#4CAF50', 
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  modalText: {
+    fontSize: 15,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 25,
+    lineHeight: 22,
+  },
+  modalBtn: {
+    backgroundColor: '#D32F2F',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    width: '100%',
+    alignItems: 'center',
+  },
+  modalBtnText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });
