@@ -13,14 +13,8 @@ const API_URL = 'https://koperasi-admin-app-jknh.vercel.app';
 
 export default function ForgotScreen() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) return null;
+  const [loading, setLoading] = useState(false);
   
   // Alur: 1 (Form NIK/Email), 2 (Input OTP), 3 (Input Password Baru)
   const [step, setStep] = useState(1); 
@@ -28,6 +22,12 @@ export default function ForgotScreen() {
   const [formData, setFormData] = useState({ nik: '', email: '', newPassword: '', confirmPassword: '' });
   const [otp, setOtp] = useState(['', '', '', '', '', '']); 
   const inputRefs = useRef([]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
 
   // --- STEP 1: VALIDASI NIK & EMAIL ---
   const handleRequestOTP = async () => {
@@ -63,7 +63,7 @@ export default function ForgotScreen() {
     setLoading(true);
     try {
       // Pastikan URL API sudah benar (tanpa double /api jika perlu)
-      const response = await axios.post(`${API_URL}/api/verify-otp`, {
+      const response = await axios.post(`${API_URL}/verify-otp`, {
         nik: formData.nik,
         otp: finalOtp
       });
