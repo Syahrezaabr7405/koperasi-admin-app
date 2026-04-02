@@ -91,7 +91,7 @@ app.post('/api/forgot-password', async (req, res) => {
         // Buat OTP 6 Digit
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         user.resetOtp = otp;
-        user.otpExpires = Date.now() + 600000; // Berlaku 10 menit
+        user.otpExpires = Date.now() + 3600000; 
         await user.save();
 
         // Kirim Email
@@ -116,7 +116,7 @@ app.post('/api/verify-otp', async (req, res) => {
         const user = await User.findOne({ 
             nik: nik, 
             resetOtp: otp, 
-            otpExpires: { $gt: Date.now() } 
+            // otpExpires: { $gt: Date.now() } // Matikan baris ini untuk testing
         });
 
         if (!user) {
@@ -133,14 +133,17 @@ app.post('/api/verify-otp', async (req, res) => {
 app.post('/api/reset-password', async (req, res) => {
     const { nik, otp, newPassword } = req.body;
 
+    console.log("Mencoba reset untuk NIK:", nik, "dengan OTP:", otp);
+
     try {
         const user = await User.findOne({ 
             nik: nik, 
             resetOtp: otp, 
-            otpExpires: { $gt: Date.now() } 
+            // otpExpires: { $gt: Date.now() } // Matikan baris ini untuk testing
         });
 
         if (!user) {
+            console.log("OTP di DB:", user.resetOtp, "vs OTP Input:", otp);
             return res.status(400).json({ success: false, message: 'Kode OTP salah atau sudah kedaluwarsa.' });
         }
 
