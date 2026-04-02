@@ -70,15 +70,15 @@ export default function LoginScreen() {
         
         {/* Top Bar */}
         <View style={styles.topBar}>
-          <Text style={styles.topBarTitle}>Koperasi BUMI</Text>
+          <Text style={styles.topBarTitle}>Koperasi Merah Putih Kelurahan Jati</Text>
           <View style={styles.topBarContact}>
             <View style={styles.contactItem}>
               <Ionicons name="call" size={14} color="#007bff" />
-              <Text style={styles.contactText}> 081223771078</Text>
+              <Text style={styles.contactText}> 081574403970</Text>
             </View>
             <View style={styles.contactItem}>
               <Ionicons name="mail" size={14} color="#007bff" />
-              <Text style={styles.contactText}> cskopbumi@gmail.com</Text>
+              <Text style={styles.contactText}> iwankurniawanimam@gmail.com</Text>
             </View>
           </View>
         </View>
@@ -87,7 +87,6 @@ export default function LoginScreen() {
         <View style={styles.navbar}>
           <View style={styles.logoGroup}>
             <Image source={Logo} style={styles.logoLanding} resizeMode="contain" />
-            <Text style={styles.logoLandingText}>Koperasi BUMI</Text>
           </View>
           
           <View style={styles.tabsContainer}>
@@ -110,8 +109,8 @@ export default function LoginScreen() {
         <ImageBackground source={Background} style={styles.heroSection}>
           <View style={styles.overlay}>
             <Text style={styles.heroSubtitle}>Sinergi dengan UMKM</Text>
-            <Text style={styles.heroTitle}>Koperasi BUMI</Text>
-            <Text style={styles.heroTitleBold}>(Bina Usaha Mandiri Indonesia)</Text>
+            <Text style={styles.heroTitle}>Koperasi Merah Putih</Text>
+            <Text style={styles.heroTitleBold}>Kelurahan Jati</Text>
             <Text style={styles.heroDescription}>
               Koperasi konsumen yang menyediakan bahan baku berkualitas untuk masyarakat Kelurahan Jati.
             </Text>
