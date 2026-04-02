@@ -36,7 +36,7 @@ export default function ForgotScreen() {
     }
     setLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/forgot-password`, {
+      const response = await axios.post(`${API_URL}/api/forgot-password`, {
         nik: formData.nik,
         email: formData.email
       });
@@ -63,7 +63,7 @@ export default function ForgotScreen() {
     setLoading(true);
     try {
       // Pastikan URL API sudah benar (tanpa double /api jika perlu)
-      const response = await axios.post(`${API_URL}/verify-otp`, {
+      const response = await axios.post(`${API_URL}/api/verify-otp`, {
         nik: formData.nik,
         otp: finalOtp
       });
@@ -100,7 +100,7 @@ export default function ForgotScreen() {
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/reset-password`, {
+      const response = await axios.post(`${API_URL}/api/reset-password`, {
         nik: formData.nik,
         otp: otp.join(''),
         newPassword: formData.newPassword
