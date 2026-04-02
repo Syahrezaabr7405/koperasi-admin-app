@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  TextInput, Alert, ActivityIndicator, Modal 
+  TextInput, Alert, ActivityIndicator, Modal, Keyboard 
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { verifyOTP, resetPassword } from '../src/services/api';
@@ -91,17 +91,15 @@ export default function ForgotScreen() {
 
   // --- STEP 3: UPDATE PASSWORD BARU ---
   const handleUpdatePassword = async () => {
-    // 1. Validasi Input Kosong
+    Keyboard.dismiss();
     if (!formData.newPassword || !formData.confirmPassword) {
       return Alert.alert("Error", "Semua kolom wajib diisi.");
     }
 
-    // 2. Validasi Minimal Karakter (Opsional tapi disarankan)
     if (formData.newPassword.length < 6) {
       return Alert.alert("Error", "Password minimal harus 6 karakter.");
     }
 
-    // 3. Validasi Kesamaan Password
     if (formData.newPassword !== formData.confirmPassword) {
       return Alert.alert("Error", "Konfirmasi password tidak cocok.");
     }
@@ -110,30 +108,38 @@ export default function ForgotScreen() {
     try {
       const response = await axios.post(`${API_URL}/api/reset-password`, {
         nik: formData.nik,
-        otp: otp.join(''), // Menggabungkan array OTP menjadi string 6 digit
+        otp: otp.join(''),
         newPassword: formData.newPassword
       });
 
-      if (response.data.success) {
-        // Alert Notifikasi sesuai permintaanmu
+      // DEBUG: Cek apa isi response dari server di terminal/console
+      console.log("Respon Server:", response.data);
+
+      // Cek apakah server mengirimkan success: true (sesuai server.js kamu)
+      if (response.data.success || response.status === 200) {
         Alert.alert(
           "Berhasil", 
           "Password baru telah berhasil disimpan, silahkan kembali ke halaman login", 
           [
             { 
               text: "Ke Halaman Login", 
-              onPress: () => router.replace('/') // Arahkan ke Login
+              onPress: () => {
+                // Gunakan replace agar user tidak bisa back ke halaman forgot password lagi
+                router.replace('/'); 
+              }
             }
           ],
-          { cancelable: false } // User harus menekan tombol, tidak bisa asal klik di luar alert
+          { cancelable: false }
         );
+      } else {
+        // Jika status 200 tapi success-nya false (jarang terjadi tapi mungkin)
+        Alert.alert("Gagal", response.data.message || "Gagal memperbarui password.");
       }
+
     } catch (error) {
-      // Menangkap pesan error spesifik dari backend (seperti OTP salah/expired)
       const serverMessage = error.response?.data?.message || "Terjadi kesalahan pada server.";
-      
       Alert.alert("Gagal", serverMessage);
-      console.log("Detail Error Reset Password:", error.response?.data);
+      console.log("Detail Error Update Password:", error.response?.data);
     } finally {
       setLoading(false);
     }
