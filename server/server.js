@@ -47,7 +47,7 @@ const User = mongoose.model('User', new mongoose.Schema({
     name: String, 
     username: { type: String, unique: true }, 
     password: String,
-    nik: { type: String, unique: true }, // Tambahkan unique agar NIK tidak ganda
+    nik: { type: String, unique: true, sparse: true }, // Tambahkan unique agar NIK tidak ganda
     email: { type: String, lowercase: true }, // TAMBAHKAN EMAIL
     phone: String, 
     role: { type: String, default: 'customer' },
