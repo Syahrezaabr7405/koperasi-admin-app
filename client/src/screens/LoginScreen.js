@@ -12,8 +12,8 @@ Modal,
 Dimensions
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import Logo from '../assets/images/Logo.jpeg';
-import Background from '../assets/images/background.jpg';
+import Logo from '../../assets/images/Logo.jpeg';
+import Background from '../../assets/images/background.jpg';
 import { useRouter } from 'expo-router';
 import { loginUser } from '../services/api';
 import { useCart } from '../CartContext';
