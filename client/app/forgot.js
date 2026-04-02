@@ -7,12 +7,20 @@ import { useRouter } from 'expo-router';
 import { verifyOTP, resetPassword } from '../src/services/api';
 import axios from 'axios';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect } from 'react';
 
 const API_URL = 'https://koperasi-admin-app-jknh.vercel.app'; 
 
 export default function ForgotScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
   
   // Alur: 1 (Form NIK/Email), 2 (Input OTP), 3 (Input Password Baru)
   const [step, setStep] = useState(1); 
@@ -28,7 +36,7 @@ export default function ForgotScreen() {
     }
     setLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/api/forgot-password`, {
+      const response = await axios.post(`${API_URL}/forgot-password`, {
         nik: formData.nik,
         email: formData.email
       });
@@ -44,14 +52,17 @@ export default function ForgotScreen() {
     }
   };
 
-  // --- STEP 2: VERIFIKASI OTP ---
+// --- STEP 2: VERIFIKASI OTP ---
   const handleVerifyOTP = async () => {
     const finalOtp = otp.join('');
-    if (finalOtp.length < 6) return Alert.alert("Error", "Masukkan 6 digit OTP");
+    
+    if (finalOtp.length < 6) {
+      return Alert.alert("Error", "Masukkan 6 digit OTP");
+    }
 
     setLoading(true);
     try {
-      // Kita kirim OTP ke server untuk dicek apakah valid
+      // Pastikan URL API sudah benar (tanpa double /api jika perlu)
       const response = await axios.post(`${API_URL}/api/verify-otp`, {
         nik: formData.nik,
         otp: finalOtp
@@ -62,7 +73,17 @@ export default function ForgotScreen() {
         setStep(3); // Pindah ke tampilan Reset Password
       }
     } catch (error) {
-      Alert.alert("Gagal", "Kode OTP tidak sesuai.");
+      // Ambil pesan error spesifik dari backend (misal: "OTP sudah kedaluwarsa")
+      const msg = error.response?.data?.message || "Kode OTP tidak sesuai atau kedaluwarsa.";
+      
+      // Jika error 404, berarti rutenya belum ada di server
+      if (error.response?.status === 404) {
+        Alert.alert("Error 404", "Rute API tidak ditemukan. Cek kembali URL di backend.");
+      } else {
+        Alert.alert("Gagal", msg);
+      }
+
+      console.log("Detail Error Verify:", error.response?.data);
     } finally {
       setLoading(false);
     }
@@ -79,7 +100,7 @@ export default function ForgotScreen() {
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/api/reset-password`, {
+      const response = await axios.post(`${API_URL}/reset-password`, {
         nik: formData.nik,
         otp: otp.join(''),
         newPassword: formData.newPassword
