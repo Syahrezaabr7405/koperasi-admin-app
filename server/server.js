@@ -43,12 +43,13 @@ app.use(async (req, res, next) => {
 });
 
 // 4. MODEL DATA (Tetap sama)
+// Cari bagian Model Data (Poin nomor 4) dan ubah jadi begini:
 const User = mongoose.model('User', new mongoose.Schema({
     name: String, 
-    username: { type: String, unique: true }, 
+    username: { type: String }, // Hapus unique: true
     password: String,
-    nik: { type: String, unique: true, sparse: true }, // Tambahkan unique agar NIK tidak ganda
-    email: { type: String, lowercase: true }, // TAMBAHKAN EMAIL
+    nik: { type: String },      // Hapus unique: true
+    email: { type: String, lowercase: true },
     phone: String, 
     role: { type: String, default: 'customer' },
     balance: { type: Number, default: 0 }, 
@@ -263,16 +264,16 @@ app.post('/register', async (req, res) => {
         const { name, username, password, nik, phone, email } = req.body;
 
         // 1. Cek apakah Username sudah ada
-        const existingUser = await User.findOne({ username });
-        if (existingUser) {
-            return res.status(400).json({ success: false, message: 'Username sudah dipakai' });
-        }
+        //const existingUser = await User.findOne({ username });
+        //if (existingUser) {
+        //    return res.status(400).json({ success: false, message: 'Username sudah dipakai' });
+        //}
 
         // 2. Cek apakah NIK sudah ada (Sangat penting karena NIK bersifat Unique)
-        const existingNik = await User.findOne({ nik });
-        if (existingNik) {
-            return res.status(400).json({ success: false, message: 'NIK ini sudah terdaftar' });
-        }
+        //const existingNik = await User.findOne({ nik });
+        //if (existingNik) {
+        //    return res.status(400).json({ success: false, message: 'NIK ini sudah terdaftar' });
+        //}
 
         // 3. Simpan user baru
         const newUser = new User({ 
