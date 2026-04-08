@@ -46,8 +46,16 @@ export default function PublicLayoutContent() {
         ) : (
           <View style={styles.desktopMenu}>
             {navItems.map((item) => {
-              // Logika pengecekan aktif yang lebih presisi
-              const isActive = pathname === item.path || (item.path === '/(public)' && pathname === '/');
+              // --- LOGIKA BARU DI SINI ---
+              // Bersihkan path dari '(public)' agar pengecekan adil
+              const cleanPath = item.path.replace('/(public)', '') || '/';
+              const cleanPathname = pathname.replace('/(public)', '') || '/';
+
+              // Cek status aktif secara presisi
+              const isActive = cleanPath === '/' 
+                ? cleanPathname === '/' 
+                : cleanPathname.includes(cleanPath);
+              // ---------------------------
 
               return (
                 <TouchableOpacity key={item.path} onPress={() => handleNav(item.path)}>
@@ -79,11 +87,20 @@ export default function PublicLayoutContent() {
               <Ionicons name="close" size={35} color="#fff" />
             </TouchableOpacity>
             
-            {navItems.map((item) => (
-              <TouchableOpacity key={item.path} style={styles.mobileNavItem} onPress={() => handleNav(item.path)}>
-                <Text style={styles.mobileNavText}>{item.name}</Text>
-              </TouchableOpacity>
-            ))}
+            {navItems.map((item) => {
+              // Terapkan logika yang sama untuk menu mobile jika ingin ada indikator aktif
+              const cleanPath = item.path.replace('/(public)', '') || '/';
+              const cleanPathname = pathname.replace('/(public)', '') || '/';
+              const isActive = cleanPath === '/' ? cleanPathname === '/' : cleanPathname.includes(cleanPath);
+
+              return (
+                <TouchableOpacity key={item.path} style={styles.mobileNavItem} onPress={() => handleNav(item.path)}>
+                  <Text style={[styles.mobileNavText, isActive && { color: '#D32F2F' }]}>
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
             
             <TouchableOpacity style={styles.mobileLoginBtn} onPress={() => { router.push('/login'); setMenuOpen(false); }}>
               <Text style={styles.loginBtnText}>MASUK / DAFTAR</Text>
