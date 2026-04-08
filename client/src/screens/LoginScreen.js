@@ -12,8 +12,6 @@ import { loginUser } from '../services/api';
 import { useCart } from '../context/CartContext';
 
 export default function LoginScreen() {
-  // --- STATE UNTUK PINDAH TAMPILAN ---
-  const [isLandingPage, setIsLandingPage] = useState(true);
 
   // --- STATE LOGIN ---
   const [username, setUsername] = useState('');
@@ -52,11 +50,6 @@ export default function LoginScreen() {
       setShowErrorModal(true);
     }
   };
-
-// --- RENDER LANDING PAGE ---
-  if (isLandingPage) {
-    return <LandingScreen onNavigateToLogin={() => setIsLandingPage(false)} />;
-  }
 
   // --- RENDER FORM LOGIN ---
   return (
