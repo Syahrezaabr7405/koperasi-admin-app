@@ -176,3 +176,24 @@ export const payWajib = async () => {
     return error.response ? error.response.data : { success: false, message: 'Server error' };
   }
 };
+
+// --- NEWS & CONTENT ---
+export const getNews = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/api/news`);
+    return response.data;
+  } catch (error) {
+    console.error("Gagal mengambil berita:", error);
+    return [];
+  }
+};
+
+// Fungsi untuk update data "Tentang Kami" (Opsional jika ingin dinamis)
+export const getAboutContent = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/api/about`);
+    return response.data;
+  } catch (error) {
+    return { description: "Koperasi Jati Merah Putih..." };
+  }
+};

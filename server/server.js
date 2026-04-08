@@ -8,8 +8,13 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // 1. MIDDLEWARE
-app.use(cors({
+/*app.use(cors({
   origin: ["https://koperasi-admin-app.vercel.app", "http://localhost:3000"],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));*/
+app.use(cors({
+  origin: "*", // Sementara gunakan "*" agar testing di perangkat apa pun lancar
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
 }));
@@ -59,6 +64,13 @@ const User = mongoose.model('User', new mongoose.Schema({
     resetOtp: String,         // Untuk simpan kode OTP sementara
     otpExpires: Date          // Masa berlaku OTP
 }));
+
+const News = mongoose.model('News', new mongoose.Schema({
+    title: String,
+    date: { type: String, default: () => new Date().toLocaleDateString('id-ID') },
+    content: String,
+    image: String,
+}), 'news');
 
 // --- KONFIGURASI PENGIRIM EMAIL (NODEMAILER) ---
 const transporter = nodemailer.createTransport({
@@ -252,6 +264,28 @@ app.post('/api/midtrans-callback', async (req, res) => {
 
 app.get('/', (req, res) => {
     res.send('Backend Koperasi API is running!');
+});
+
+// Ambil semua berita (untuk user)
+app.get('/api/news', async (req, res) => {
+    try {
+        const news = await News.find().sort({ _id: -1 }); // Berita terbaru di atas
+        res.json(news);
+    } catch (err) {
+        res.status(500).json([]);
+    }
+});
+
+// Tambah berita (untuk admin)
+app.post('/api/news', async (req, res) => {
+    try {
+        const { title, content, image } = req.body;
+        const newNews = new News({ title, content, image });
+        await newNews.save();
+        res.json({ success: true, data: newNews });
+    } catch (err) {
+        res.status(500).json({ success: false });
+    }
 });
 
 // --- AUTH ---
