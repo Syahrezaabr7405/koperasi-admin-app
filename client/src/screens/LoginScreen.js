@@ -9,7 +9,7 @@ import Logo from '../../assets/images/Logo.jpeg';
 import Background from '../../assets/images/background.jpg';
 import { useRouter } from 'expo-router';
 import { loginUser } from '../services/api';
-import { useCart } from '../CartContext';
+import { useCart } from '../context/CartContext';
 
 // Import komponen baru
 import LandingScreen from './LandingScreen';

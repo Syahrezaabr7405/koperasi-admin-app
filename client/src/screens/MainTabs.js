@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, TextInput, ScrollView, Image } from 'react-native';
 import { getProducts, updateBalance, createOrder } from '../services/api';
-import { useCart } from '../CartContext';
+import { useCart } from '../context/CartContext';
 
 const Tab = createBottomTabNavigator();
 
