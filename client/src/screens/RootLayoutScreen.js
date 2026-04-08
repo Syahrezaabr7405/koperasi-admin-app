@@ -1,30 +1,24 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { CartProvider } from '../context/CartContext'; 
-import { StatusBar, SafeAreaView } from 'react-native'; 
-import Head from 'expo-router/head';
+import { StatusBar, Platform, View } from 'react-native'; 
 
 export default function RootLayoutScreen() {
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#fff' }}>
-      <Head>
-        <title>Koperasi Merah Putih</title>
-        <meta name="description" content="Aplikasi Koperasi Jati" />
-      </Head>
-
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+    // Gunakan View biasa jika di Web, SafeAreaView hanya untuk Mobile
+    <View style={{ flex: 1, backgroundColor: '#fff' }}>
+      <StatusBar barStyle="dark-content" />
       
       <CartProvider>
-        {/* Tambahkan rute (public) ke dalam Stack */}
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(public)" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-          <Stack.Screen name="register" options={{ headerShown: false }} />
-          <Stack.Screen name="forgot" options={{ headerShown: false }} />
-          <Stack.Screen name="main" options={{ headerShown: false }} />
-          <Stack.Screen name="admin" options={{ headerShown: false }} />
+          <Stack.Screen name="(public)" />
+          <Stack.Screen name="login" />
+          <Stack.Screen name="register" />
+          <Stack.Screen name="forgot" />
+          <Stack.Screen name="main" />
+          <Stack.Screen name="admin" />
         </Stack>
       </CartProvider>
-    </SafeAreaView>
+    </View>
   );
 }
