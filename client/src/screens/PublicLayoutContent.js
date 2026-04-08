@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Pastikan useEffect ada di sini
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Modal, Image } from 'react-native';
 import { Slot, useRouter, usePathname } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -6,10 +6,15 @@ import Logo from '../../assets/images/Logo.jpeg';
 
 export default function PublicLayoutContent() {
   const { width } = useWindowDimensions();
-  const isMobile = width < 768;
+  const [isMobile, setIsMobile] = useState(false); // Default false
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // Update status mobile hanya setelah komponen muncul di browser
+  useEffect(() => {
+    setIsMobile(width < 768);
+  }, [width]);
 
   const navItems = [
     { name: 'Home', path: '/(public)' },
