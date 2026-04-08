@@ -11,9 +11,6 @@ import { useRouter } from 'expo-router';
 import { loginUser } from '../services/api';
 import { useCart } from '../context/CartContext';
 
-// Import komponen baru
-import LandingScreen from './HomeScreen';
-
 export default function LoginScreen() {
   // --- STATE UNTUK PINDAH TAMPILAN ---
   const [isLandingPage, setIsLandingPage] = useState(true);
