@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; // Pastikan useEffect ada di sini
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Modal, Image } from 'react-native';
 import { Slot, useRouter, usePathname } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -6,12 +6,11 @@ import Logo from '../../assets/images/Logo.jpeg';
 
 export default function PublicLayoutContent() {
   const { width } = useWindowDimensions();
-  const [isMobile, setIsMobile] = useState(false); // Default false
+  const [isMobile, setIsMobile] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Update status mobile hanya setelah komponen muncul di browser
   useEffect(() => {
     setIsMobile(width < 768);
   }, [width]);
@@ -46,13 +45,22 @@ export default function PublicLayoutContent() {
           </TouchableOpacity>
         ) : (
           <View style={styles.desktopMenu}>
-            {navItems.map((item) => (
-              <TouchableOpacity key={item.path} onPress={() => handleNav(item.path)}>
-                <Text style={[styles.navText, (pathname === item.path || (item.path === '/(public)' && pathname === '/')) && styles.navActive]}>
-                  {item.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {navItems.map((item) => {
+              // Logika pengecekan aktif yang lebih presisi
+              const isActive = pathname === item.path || (item.path === '/(public)' && pathname === '/');
+
+              return (
+                <TouchableOpacity key={item.path} onPress={() => handleNav(item.path)}>
+                  <Text style={[
+                    styles.navText,
+                    isActive && styles.navActive 
+                  ]}>
+                    {item.name}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            
             <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/login')}>
               <Text style={styles.loginBtnText}>MASUK</Text>
             </TouchableOpacity>

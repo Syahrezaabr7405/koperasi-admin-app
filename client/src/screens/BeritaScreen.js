@@ -4,8 +4,8 @@ import { View, Text, ScrollView, StyleSheet, Image, TouchableOpacity } from 'rea
 export default function BeritaScreen() {
   // Contoh data dummy, nantinya diambil dari API/Database
   const beritaData = [
-    { id: 1, judul: 'Rapat Anggota Tahunan 2026', tgl: '10 Maret 2026', img: 'https://via.placeholder.com/300' },
-    { id: 2, judul: 'Penyaluran Sembako UMKM Jati', tgl: '05 Maret 2026', img: 'https://via.placeholder.com/300' },
+    { id: 1, judul: 'Rapat Anggota Tahunan 2026', tgl: '10 Maret 2026', img: 'https://picsum.photos/300/180' },
+    { id: 2, judul: 'Penyaluran Sembako UMKM Jati', tgl: '05 Maret 2026', img: 'https://picsum.photos/300/180' },
   ];
 
   return (
