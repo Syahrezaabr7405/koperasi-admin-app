@@ -57,7 +57,10 @@ export default function LoginScreen() {
       <Image source={Background} style={styles.backgroundImage} resizeMode="cover" />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.backToHome} onPress={() => setIsLandingPage(true)}>
+        <TouchableOpacity 
+          style={styles.backToHome} 
+          onPress={() => router.replace('/(public)')} // Pindah ke halaman utama
+        >
             <Ionicons name="arrow-back" size={24} color="#fff" />
             <Text style={{color: '#fff', marginLeft: 5, fontWeight: '600'}}>Kembali</Text>
         </TouchableOpacity>
